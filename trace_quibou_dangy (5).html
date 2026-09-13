@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Quibou - Dangy 22km</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  #map-view, #detail-view { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; }
+  #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; }
+
+  .info-box {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1000;
+    background: rgba(255,255,255,0.92);
+    padding: 10px 14px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    font-size: 14px;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+  .info-box strong { display: block; margin-bottom: 4px; font-size: 15px; }
+  .info-box .hint { font-size: 11px; color: #888; margin-top: 4px; }
+
+  #detail-view {
+    display: none;
+    background: #fafafa;
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 20px;
+  }
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-bottom: 16px;
+  }
+  .detail-title { font-size: 22px; font-weight: 700; margin: 0 0 4px 0; color: #222; }
+  .detail-sub { color: #666; font-size: 14px; margin-bottom: 20px; }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .stat-value { font-size: 20px; font-weight: 700; color: #cc0000; }
+  .stat-label { font-size: 12px; color: #888; margin-top: 2px; }
+
+  .section-title { font-size: 15px; font-weight: 600; margin: 0 0 10px 0; color: #333; }
+  .chart-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+</style>
+</head>
+<body>
+
+<div id="map-view">
+  <div id="map"></div>
+  <div class="info-box" id="open-detail">
+    <strong>Quibou → Dangy</strong>
+    22 km · boucle
+    <div style="margin-top:6px;" id="map-ratings">⭐ -- · 💪 --</div>
+    <div class="hint">Touchez le tracé pour la fiche →</div>
+  </div>
+</div>
+
+<div id="detail-view">
+  <button class="back-btn" id="back-to-map">← Retour à la carte</button>
+  <div class="detail-title">Quibou → Dangy</div>
+  <div class="detail-sub">Boucle · Manche (50)</div>
+
+  <div class="stats-grid" id="stats-grid"></div>
+
+  <div class="section-title">Profil altimétrique</div>
+  <div class="chart-card">
+    <svg id="elev-chart" viewBox="0 0 600 220" style="width:100%; height:auto;"></svg>
+  </div>
+
+  <div class="section-title" style="margin-top:24px;">Mon parcours</div>
+  <div class="chart-card" style="text-align:center;">
+    <button id="validate-btn" style="background:#22aa55; color:#fff; border:none; border-radius:8px; padding:12px 20px; font-size:15px; cursor:pointer; width:100%;">J'ai validé mon parcours ✓</button>
+    <div id="validate-status" style="font-size:12px; color:#888; margin-top:8px;"></div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value" id="rating-difficulte">--</div>
+      <div class="stat-label" id="votes-difficulte">Difficulté</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="rating-appreciation">--</div>
+      <div class="stat-label" id="votes-appreciation">Appréciation</div>
+    </div>
+  </div>
+
+  <div class="chart-card" id="vote-box">
+    <div class="section-title" style="margin-top:0;">Votez !</div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px; color:#555;">Difficulté : <span id="vote-diff-val">5</span>/10</label><br>
+      <input type="range" min="1" max="10" value="5" id="vote-diff" style="width:100%; accent-color:#cc0000;">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px; color:#555;">Appréciation : <span id="vote-appr-val">5</span>/10</label><br>
+      <input type="range" min="1" max="10" value="5" id="vote-appr" style="width:100%; accent-color:#cc0000;">
+    </div>
+    <button id="submit-vote" style="background:#cc0000; color:#fff; border:none; border-radius:8px; padding:10px 18px; font-size:14px; cursor:pointer;">Envoyer mon vote</button>
+    <div id="vote-status" style="font-size:12px; color:#888; margin-top:8px;"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const DATA = {"coords": [[49.06326, -1.18496], [49.0633, -1.185], [49.0645, -1.18747], [49.06495, -1.18648], [49.06545, -1.18601], [49.06594, -1.18485], [49.06618, -1.18485], [49.06646, -1.18494], [49.06652, -1.18515], [49.06741, -1.18569], [49.06857, -1.18571], [49.06922, -1.18624], [49.06982, -1.18783], [49.07077, -1.18861], [49.07108, -1.18908], [49.0713, -1.18886], [49.0715, -1.18903], [49.07223, -1.19026], [49.07216, -1.19049], [49.07234, -1.19105], [49.07175, -1.19268], [49.07093, -1.1935], [49.07033, -1.19461], [49.06961, -1.19521], [49.06911, -1.19406], [49.06885, -1.19436], [49.06862, -1.19517], [49.06838, -1.19558], [49.06798, -1.19575], [49.06682, -1.19712], [49.06642, -1.19781], [49.06634, -1.19813], [49.06732, -1.20002], [49.06769, -1.20004], [49.06784, -1.20041], [49.06793, -1.20114], [49.06839, -1.20122], [49.07141, -1.20247], [49.07309, -1.20219], [49.07346, -1.20247], [49.07346, -1.20356], [49.07389, -1.2036], [49.07406, -1.20285], [49.07386, -1.20257], [49.07397, -1.19908], [49.07436, -1.19914], [49.07587, -1.2006], [49.07684, -1.20178], [49.07747, -1.20279], [49.07883, -1.20255], [49.07954, -1.20234], [49.07986, -1.20178], [49.08035, -1.20122], [49.08082, -1.20056], [49.08132, -1.20094], [49.08221, -1.20013], [49.08274, -1.20069], [49.08335, -1.20193], [49.08402, -1.20122], [49.08434, -1.20122], [49.08502, -1.20075], [49.08602, -1.20064], [49.0871, -1.19948], [49.08848, -1.19833], [49.0894, -1.20021], [49.08978, -1.20197], [49.09054, -1.20294], [49.09055, -1.20405], [49.08947, -1.20474], [49.08918, -1.20539], [49.08755, -1.20652], [49.08763, -1.20742], [49.08713, -1.2086], [49.08597, -1.21015], [49.08527, -1.20918], [49.08465, -1.21017], [49.08482, -1.21144], [49.0837, -1.21229], [49.08329, -1.21262], [49.08349, -1.21324], [49.08257, -1.2147], [49.08195, -1.21558], [49.08143, -1.21541], [49.0789, -1.2209], [49.07621, -1.21832], [49.07543, -1.21933], [49.07491, -1.2191], [49.07154, -1.22131], [49.07154, -1.22167], [49.07136, -1.22219], [49.0707, -1.22161], [49.07019, -1.22021], [49.07001, -1.22002], [49.06911, -1.22079], [49.06735, -1.21998], [49.06662, -1.21963], [49.06499, -1.21957], [49.06428, -1.2194], [49.06396, -1.22008], [49.0634, -1.2206], [49.06254, -1.22217], [49.06181, -1.2191], [49.06161, -1.21882], [49.06154, -1.21794], [49.06046, -1.21749], [49.0595, -1.21614], [49.05887, -1.21425], [49.05807, -1.21427], [49.05713, -1.21474], [49.05593, -1.21307], [49.05489, -1.21442], [49.05455, -1.21639], [49.05385, -1.2192], [49.05391, -1.2212], [49.05254, -1.22122], [49.05236, -1.22101], [49.05166, -1.2206], [49.0516, -1.22083], [49.0516, -1.22137], [49.05115, -1.22313], [49.05183, -1.22367], [49.05083, -1.22433], [49.05022, -1.2239], [49.049, -1.22395], [49.0466, -1.22459], [49.04627, -1.2247], [49.04562, -1.22521], [49.04501, -1.22549], [49.04517, -1.22399], [49.04456, -1.22362], [49.04442, -1.22298], [49.04395, -1.22249], [49.0437, -1.22182], [49.04302, -1.22118], [49.04215, -1.22004], [49.04096, -1.2194], [49.04022, -1.21856], [49.04003, -1.21762], [49.03958, -1.21719], [49.03949, -1.21584], [49.03903, -1.21483], [49.03824, -1.21378], [49.03706, -1.213], [49.03589, -1.21212], [49.03517, -1.21071], [49.03427, -1.20974], [49.03371, -1.20961], [49.0334, -1.20914], [49.03261, -1.20839], [49.03157, -1.20678], [49.03077, -1.20644], [49.0296, -1.20513], [49.02896, -1.20493], [49.03018, -1.19867], [49.03026, -1.19805], [49.03153, -1.19813], [49.03247, -1.19841], [49.03333, -1.19815], [49.03423, -1.19753], [49.03553, -1.1977], [49.03738, -1.19781], [49.03959, -1.19764], [49.04001, -1.19708], [49.04097, -1.19442], [49.04107, -1.19408], [49.04253, -1.19427], [49.04353, -1.19423], [49.04453, -1.19275], [49.04465, -1.19178], [49.04523, -1.19159], [49.04519, -1.19019], [49.04543, -1.19028], [49.04624, -1.19032], [49.04637, -1.19107], [49.04674, -1.19101], [49.04703, -1.19189], [49.04813, -1.19129], [49.04889, -1.18908], [49.04955, -1.1891], [49.05004, -1.18957], [49.05117, -1.19129], [49.05223, -1.19294], [49.05271, -1.19307], [49.0537, -1.19399], [49.05439, -1.19418], [49.05526, -1.19496], [49.05586, -1.19528], [49.05704, -1.19579], [49.05779, -1.19654], [49.05828, -1.19674], [49.05852, -1.19644], [49.0586, -1.19584], [49.05967, -1.19363], [49.05984, -1.19371], [49.06004, -1.19309], [49.06026, -1.19309], [49.06049, -1.19285], [49.06055, -1.19245], [49.06053, -1.19163], [49.06056, -1.19071], [49.06116, -1.18689], [49.06167, -1.18586], [49.06199, -1.18509], [49.06195, -1.18414], [49.06326, -1.18496]], "dist_km": [0.0, 0.005, 0.229, 0.317, 0.382, 0.483, 0.51, 0.541, 0.558, 0.665, 0.794, 0.876, 1.009, 1.129, 1.178, 1.207, 1.233, 1.353, 1.372, 1.417, 1.553, 1.662, 1.767, 1.858, 1.959, 1.995, 2.059, 2.099, 2.145, 2.308, 2.376, 2.401, 2.576, 2.617, 2.649, 2.703, 2.755, 3.103, 3.29, 3.336, 3.416, 3.464, 3.521, 3.552, 3.806, 3.85, 4.048, 4.186, 4.288, 4.44, 4.521, 4.575, 4.643, 4.714, 4.776, 4.891, 4.963, 5.076, 5.166, 5.202, 5.285, 5.397, 5.543, 5.718, 5.889, 6.024, 6.134, 6.215, 6.345, 6.402, 6.601, 6.668, 6.77, 6.941, 7.046, 7.146, 7.241, 7.38, 7.431, 7.482, 7.629, 7.723, 7.782, 8.271, 8.625, 8.738, 8.798, 9.206, 9.233, 9.275, 9.36, 9.477, 9.501, 9.616, 9.82, 9.905, 10.087, 10.167, 10.228, 10.3, 10.449, 10.687, 10.718, 10.782, 10.907, 11.052, 11.206, 11.295, 11.405, 11.586, 11.738, 11.886, 12.105, 12.251, 12.403, 12.429, 12.512, 12.53, 12.569, 12.707, 12.792, 12.914, 12.988, 13.124, 13.395, 13.432, 13.514, 13.585, 13.695, 13.768, 13.817, 13.881, 13.937, 14.026, 14.153, 14.294, 14.396, 14.468, 14.527, 14.626, 14.715, 14.832, 14.975, 15.12, 15.25, 15.373, 15.436, 15.484, 15.588, 15.753, 15.845, 16.006, 16.079, 16.555, 16.601, 16.743, 16.849, 16.947, 17.056, 17.201, 17.407, 17.653, 17.715, 17.937, 17.964, 18.127, 18.238, 18.393, 18.465, 18.531, 18.633, 18.661, 18.751, 18.807, 18.849, 18.92, 19.05, 19.232, 19.306, 19.37, 19.547, 19.716, 19.77, 19.899, 19.977, 20.089, 20.16, 20.296, 20.396, 20.452, 20.487, 20.531, 20.732, 20.751, 20.802, 20.826, 20.857, 20.887, 20.947, 21.014, 21.3, 21.394, 21.461, 21.53, 21.687], "eles": [103.7, 103.2, 98.4, 95.7, 91.5, 94.2, 94.8, 94.9, 93.2, 86.4, 78.5, 75.1, 67.3, 59.8, 55.1, 54.6, 52.1, 57.1, 57.1, 62.4, 65.1, 63.5, 60.5, 55.6, 55.1, 54.6, 54.0, 54.1, 55.4, 56.3, 56.9, 56.9, 59.5, 60.9, 62.9, 65.0, 66.7, 78.0, 83.2, 85.9, 89.4, 91.0, 90.2, 89.7, 86.8, 89.7, 96.0, 96.8, 95.2, 89.0, 87.0, 88.3, 89.0, 90.1, 90.1, 91.1, 88.7, 85.0, 84.4, 83.6, 82.2, 78.3, 74.4, 74.5, 68.4, 61.7, 54.5, 53.6, 57.3, 59.5, 58.7, 62.7, 65.6, 66.8, 59.1, 60.2, 65.8, 68.7, 69.3, 71.9, 72.1, 74.1, 71.2, 68.6, 70.0, 73.6, 75.5, 84.8, 85.5, 86.0, 88.4, 89.0, 89.0, 94.2, 100.1, 103.2, 106.0, 104.9, 103.7, 103.4, 104.1, 93.4, 92.1, 93.4, 86.7, 88.9, 81.7, 82.4, 77.7, 71.3, 72.3, 84.2, 94.1, 97.1, 93.6, 92.3, 83.0, 82.9, 85.0, 82.4, 90.4, 79.0, 77.7, 93.2, 103.6, 104.4, 105.9, 105.8, 104.0, 102.4, 100.1, 99.2, 97.9, 95.4, 94.0, 99.6, 98.2, 93.0, 96.8, 94.0, 91.5, 105.2, 111.4, 115.1, 112.9, 106.6, 108.5, 111.3, 114.9, 123.9, 130.2, 137.4, 138.0, 140.9, 141.0, 138.5, 133.2, 134.0, 132.8, 128.4, 125.5, 119.2, 116.9, 118.5, 118.2, 112.9, 109.3, 108.0, 105.5, 104.8, 100.8, 102.1, 104.2, 105.9, 105.5, 106.7, 102.0, 90.7, 87.8, 86.4, 91.4, 88.3, 85.9, 86.9, 85.3, 84.4, 78.7, 75.7, 71.6, 68.1, 66.5, 69.9, 82.9, 85.6, 84.4, 86.1, 87.0, 85.8, 83.6, 83.5, 96.7, 100.1, 102.9, 103.0, 103.7], "stats": {"distance_km": 21.69, "gain_m": 327, "loss_m": 327, "min_ele": 52, "max_ele": 141}};
+
+  // ---------- MAP VIEW ----------
+  const map = L.map('map');
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  const track = L.polygon(DATA.coords, {
+    color: '#cc0000',
+    weight: 3,
+    fillColor: '#ff0000',
+    fillOpacity: 0.35
+  }).addTo(map);
+
+  map.fitBounds(track.getBounds(), { padding: [30, 30] });
+
+  setTimeout(function () { map.invalidateSize(); }, 200);
+  window.addEventListener('resize', function () { map.invalidateSize(); });
+
+  // ---------- NAVIGATION ----------
+  const mapView = document.getElementById('map-view');
+  const detailView = document.getElementById('detail-view');
+
+  function showDetail() {
+    mapView.style.display = 'none';
+    detailView.style.display = 'block';
+    drawChart();
+  }
+  function showMap() {
+    detailView.style.display = 'none';
+    mapView.style.display = 'block';
+    setTimeout(function () { map.invalidateSize(); }, 50);
+  }
+
+  track.on('click', showDetail);
+  document.getElementById('open-detail').addEventListener('click', showDetail);
+  document.getElementById('back-to-map').addEventListener('click', showMap);
+
+  // ---------- STATS ----------
+  const stats = DATA.stats;
+  const statsGrid = document.getElementById('stats-grid');
+  const statItems = [
+    { value: stats.distance_km + ' km', label: 'Distance totale' },
+    { value: '+' + stats.gain_m + ' m', label: "Dénivelé positif" },
+    { value: '-' + stats.loss_m + ' m', label: "Dénivelé négatif" },
+    { value: stats.min_ele + ' - ' + stats.max_ele + ' m', label: 'Altitude min / max' }
+  ];
+  statItems.forEach(function (item) {
+    const div = document.createElement('div');
+    div.className = 'stat-card';
+    div.innerHTML = '<div class="stat-value">' + item.value + '</div><div class="stat-label">' + item.label + '</div>';
+    statsGrid.appendChild(div);
+  });
+
+  // ---------- ELEVATION CHART (SVG) ----------
+  function drawChart() {
+    const svg = document.getElementById('elev-chart');
+    if (svg.dataset.drawn) return;
+    svg.dataset.drawn = '1';
+
+    const dist = DATA.dist_km;
+    const eles = DATA.eles;
+    const W = 600, H = 220, padL = 40, padR = 10, padT = 10, padB = 30;
+    const plotW = W - padL - padR;
+    const plotH = H - padT - padB;
+
+    const maxD = dist[dist.length - 1];
+    const minE = Math.min.apply(null, eles);
+    const maxE = Math.max.apply(null, eles);
+    const eRange = (maxE - minE) || 1;
+
+    function x(d) { return padL + (d / maxD) * plotW; }
+    function y(e) { return padT + plotH - ((e - minE) / eRange) * plotH; }
+
+    let path = 'M ' + x(dist[0]) + ' ' + y(eles[0]);
+    for (let i = 1; i < dist.length; i++) {
+      path += ' L ' + x(dist[i]) + ' ' + y(eles[i]);
+    }
+    const areaPath = path + ' L ' + x(dist[dist.length - 1]) + ' ' + (padT + plotH) + ' L ' + x(dist[0]) + ' ' + (padT + plotH) + ' Z';
+
+    let svgContent = '';
+    svgContent += '<path d="' + areaPath + '" fill="#ff0000" opacity="0.15"></path>';
+    svgContent += '<path d="' + path + '" fill="none" stroke="#cc0000" stroke-width="2"></path>';
+
+    // axis line
+    svgContent += '<line x1="' + padL + '" y1="' + (padT + plotH) + '" x2="' + (padL + plotW) + '" y2="' + (padT + plotH) + '" stroke="#ccc" stroke-width="1"></line>';
+
+    // y labels (min/max)
+    svgContent += '<text x="4" y="' + (y(maxE) + 4) + '" font-size="10" fill="#888">' + Math.round(maxE) + 'm</text>';
+    svgContent += '<text x="4" y="' + (y(minE) + 4) + '" font-size="10" fill="#888">' + Math.round(minE) + 'm</text>';
+
+    // x labels
+    svgContent += '<text x="' + padL + '" y="' + (H - 8) + '" font-size="10" fill="#888">0 km</text>';
+    svgContent += '<text x="' + (padL + plotW - 30) + '" y="' + (H - 8) + '" font-size="10" fill="#888">' + maxD.toFixed(1) + ' km</text>';
+
+    svg.innerHTML = svgContent;
+  }
+
+  // ---------- VOTES PARTAGÉS ----------
+  const STORAGE_SUPPORTED = typeof window.storage !== 'undefined';
+
+  async function loadRatings() {
+    if (!STORAGE_SUPPORTED) {
+      document.getElementById('map-ratings').textContent = '⭐ -- · 💪 --';
+      document.getElementById('vote-status').textContent = "Le vote partagé n'est disponible que via l'aperçu Claude (pas dans un navigateur externe).";
+      document.getElementById('submit-vote').disabled = true;
+      return;
+    }
+    try {
+      const diff = await window.storage.get('votes:difficulte', true);
+      const appr = await window.storage.get('votes:appreciation', true);
+      renderRatings(diff, appr);
+    } catch (e) {
+      renderRatings(null, null);
+    }
+  }
+
+  function renderRatings(diffResult, apprResult) {
+    const diff = diffResult ? JSON.parse(diffResult.value) : { sum: 0, count: 0 };
+    const appr = apprResult ? JSON.parse(apprResult.value) : { sum: 0, count: 0 };
+
+    const diffAvg = diff.count ? (diff.sum / diff.count).toFixed(1) : '--';
+    const apprAvg = appr.count ? (appr.sum / appr.count).toFixed(1) : '--';
+
+    document.getElementById('map-ratings').textContent = '⭐ ' + apprAvg + ' · 💪 ' + diffAvg;
+    document.getElementById('rating-difficulte').textContent = diffAvg + '/10';
+    document.getElementById('rating-appreciation').textContent = apprAvg + '/10';
+    document.getElementById('votes-difficulte').textContent = 'Difficulté (' + diff.count + ' vote' + (diff.count > 1 ? 's' : '') + ')';
+    document.getElementById('votes-appreciation').textContent = 'Appréciation (' + appr.count + ' vote' + (appr.count > 1 ? 's' : '') + ')';
+  }
+
+  document.getElementById('vote-diff').addEventListener('input', function (e) {
+    document.getElementById('vote-diff-val').textContent = e.target.value;
+  });
+  document.getElementById('vote-appr').addEventListener('input', function (e) {
+    document.getElementById('vote-appr-val').textContent = e.target.value;
+  });
+
+  document.getElementById('submit-vote').addEventListener('click', async function () {
+    if (!STORAGE_SUPPORTED) return;
+    const status = document.getElementById('vote-status');
+    status.textContent = 'Envoi en cours...';
+    try {
+      const diffVal = parseInt(document.getElementById('vote-diff').value, 10);
+      const apprVal = parseInt(document.getElementById('vote-appr').value, 10);
+
+      const diffResult = await window.storage.get('votes:difficulte', true).catch(function () { return null; });
+      const apprResult = await window.storage.get('votes:appreciation', true).catch(function () { return null; });
+
+      const diff = diffResult ? JSON.parse(diffResult.value) : { sum: 0, count: 0 };
+      const appr = apprResult ? JSON.parse(apprResult.value) : { sum: 0, count: 0 };
+
+      diff.sum += diffVal; diff.count += 1;
+      appr.sum += apprVal; appr.count += 1;
+
+      await window.storage.set('votes:difficulte', JSON.stringify(diff), true);
+      await window.storage.set('votes:appreciation', JSON.stringify(appr), true);
+
+      renderRatings({ value: JSON.stringify(diff) }, { value: JSON.stringify(appr) });
+      status.textContent = 'Merci pour votre vote !';
+    } catch (e) {
+      status.textContent = "Erreur lors de l'envoi du vote.";
+    }
+  });
+
+  loadRatings();
+
+  // ---------- VALIDATION PERSONNELLE DU PARCOURS ----------
+  const VALIDATE_KEY = 'quibou_dangy_valide';
+  const validateBtn = document.getElementById('validate-btn');
+  const validateStatus = document.getElementById('validate-status');
+
+  function applyValidatedStyle(isValidated) {
+    if (isValidated) {
+      track.setStyle({ color: '#1a8a3d', fillColor: '#22aa55' });
+      validateBtn.textContent = 'Parcours validé ✓ (annuler)';
+      validateBtn.style.background = '#888';
+      validateStatus.textContent = 'Le tracé est vert sur votre carte uniquement.';
+    } else {
+      track.setStyle({ color: '#cc0000', fillColor: '#ff0000' });
+      validateBtn.textContent = "J'ai validé mon parcours ✓";
+      validateBtn.style.background = '#22aa55';
+      validateStatus.textContent = '';
+    }
+  }
+
+  function isValidated() {
+    try {
+      return localStorage.getItem(VALIDATE_KEY) === '1';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  applyValidatedStyle(isValidated());
+
+  validateBtn.addEventListener('click', function () {
+    const newState = !isValidated();
+    try {
+      localStorage.setItem(VALIDATE_KEY, newState ? '1' : '0');
+    } catch (e) {
+      validateStatus.textContent = "Impossible d'enregistrer (stockage local indisponible).";
+    }
+    applyValidatedStyle(newState);
+  });
+</script>
+</body>
+</html>
