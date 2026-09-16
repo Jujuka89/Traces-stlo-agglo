@@ -1,46 +1,8 @@
 ```javascript
 /* ==========================================
    SAINT-LÔ AGGLO EN VTT
-   Carte interactive + validations individuelles
+   Carte principale
    ========================================== */
-
-
-/* ==========================================
-   CONFIGURATION DES PARCOURS
-   ========================================== */
-
-const parcours = [
-  {
-    id: 'quibou-dangy',
-    nom: 'Quibou → Dangy',
-    commune: 'Quibou',
-    distance: '22 km',
-    fichier: 'gpx/Quibou_Dangy_22kms.gpx',
-    fiche: 'traces/trace.html?id=quibou-dangy'
-  }
-
-  /*
-  Les prochains parcours seront ajoutés ici :
-
-  {
-    id: 'canisy',
-    nom: 'Canisy',
-    commune: 'Canisy',
-    distance: '18 km',
-    fichier: 'gpx/Canisy.gpx',
-    fiche: 'traces/trace.html?id=canisy'
-  },
-
-  {
-    id: 'saint-lo',
-    nom: 'Saint-Lô',
-    commune: 'Saint-Lô',
-    distance: '25 km',
-    fichier: 'gpx/Saint-Lo.gpx',
-    fiche: 'traces/trace.html?id=saint-lo'
-  }
-  */
-];
 
 
 /* ==========================================
@@ -59,6 +21,7 @@ L.tileLayer(
   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   {
     maxZoom: 19,
+
     attribution:
       '&copy; OpenStreetMap contributors'
   }
@@ -66,52 +29,77 @@ L.tileLayer(
 
 
 /* ==========================================
-   VARIABLES
+   PARCOURS
+   ========================================== */
+
+const parcours = {
+
+  'quibou-dangy': {
+
+    id: 'quibou-dangy',
+
+    nom: 'Quibou → Dangy',
+
+    commune: 'Quibou',
+
+    distance: '22 km',
+
+    fichier:
+      'gpx/Quibou_Dangy_22kms.gpx',
+
+    fiche:
+      'traces/trace.html?id=quibou-dangy'
+
+  }
+
+};
+
+
+/* ==========================================
+   STOCKAGE DES TRACES
    ========================================== */
 
 const couchesParcours = {};
-const validationsUtilisateur = {};
-
-let currentUser = null;
 
 
 /* ==========================================
-   FIREBASE
+   CHARGEMENT QUIBOU → DANGY
    ========================================== */
 
-/*
-   Firebase sera initialisé ici.
+function chargerParcours(data) {
 
-   Pour l'instant, le script fonctionne
-   également sans Firebase afin de pouvoir
-   tester la carte.
-*/
+  console.log(
+    'Chargement du GPX :',
+    data.fichier
+  );
 
-let firebaseDisponible = false;
-
-
-/* ==========================================
-   CRÉATION D'UN PARCOURS
-   ========================================== */
-
-function chargerParcours(parcoursData) {
 
   const gpx = new L.GPX(
-    parcoursData.fichier,
+    data.fichier,
     {
+
       async: true,
 
       polyline_options: {
+
         color: '#e53935',
+
         weight: 5,
+
         opacity: 0.9
+
       },
 
       markers: {
+
         startIcon: null,
+
         endIcon: null,
+
         shadowUrl: null
+
       }
+
     }
   );
 
@@ -122,25 +110,242 @@ function chargerParcours(parcoursData) {
 
   gpx.on(
     'loaded',
-    function(e) {
+    function(event) {
 
-      const couche = e.target;
+      const couche =
+        event.target;
 
-      couchesParcours[parcoursData.id] = couche;
+
+      console.log(
+        'GPX chargé avec succès :',
+        data.nom
+      );
 
 
-      /* --------------------------------------
-         Popup
-         -------------------------------------- */
+      couchesParcours[data.id] =
+        couche;
+
+
+      /* Zoom automatique */
+
+      map.fitBounds(
+        couche.getBounds(),
+        {
+          padding: [30, 30]
+        }
+      );
+
+
+      /* Popup */
 
       couche.bindPopup(`
         <div style="min-width:190px">
 
-          <strong>🚵 ${parcoursData.nom}</strong>
+          <strong>
+            🚵 ${data.nom}
+          </strong>
 
           <br><br>
 
-          <span class="statut-parcours"
-                data-statut="${parcoursData.id}">
-            🔴 À
+          <span>
+            🔴 À découvrir
+          </span>
+
+          <br>
+
+          📏 ${data.distance}
+
+          <br>
+
+          🚵 Parcours VTT
+
+          <br><br>
+
+          <a
+            href="${data.fichier}"
+            download
+          >
+            📥 Télécharger le GPX
+          </a>
+
+          <br><br>
+
+          <button
+            onclick="ouvrirParcours('${data.id}')"
+            style="
+              border:0;
+              background:#2f6b3c;
+              color:white;
+              padding:8px 12px;
+              border-radius:8px;
+              cursor:pointer;
+            "
+          >
+            Voir la fiche
+          </button>
+
+        </div>
+      `);
+
+
+      /* Clic sur la trace */
+
+      couche.on(
+        'click',
+        function() {
+
+          couche.openPopup();
+
+        }
+      );
+
+    }
+  );
+
+
+  /* ----------------------------------------
+     Erreur
+     ---------------------------------------- */
+
+  gpx.on(
+    'error',
+    function(error) {
+
+      console.error(
+        'ERREUR GPX :',
+        data.fichier,
+        error
+      );
+
+    }
+  );
+
+
+  /* Ajout à la carte */
+
+  gpx.addTo(map);
+
+}
+
+
+/* ==========================================
+   CHARGER TOUS LES PARCOURS
+   ========================================== */
+
+Object.values(parcours).forEach(
+  chargerParcours
+);
+
+
+/* ==========================================
+   OUVRIR UNE FICHE
+   ========================================== */
+
+function ouvrirParcours(id) {
+
+  const data =
+    parcours[id];
+
+
+  if (!data) {
+
+    console.error(
+      'Parcours introuvable :',
+      id
+    );
+
+    return;
+
+  }
+
+
+  window.location.href =
+    data.fiche;
+
+}
+
+
+window.ouvrirParcours =
+  ouvrirParcours;
+
+
+/* ==========================================
+   ANCIENNE FONCTION
+   Compatible avec l'ancien bouton
+   ========================================== */
+
+function centrerParcours(nom) {
+
+  const data =
+    Object.values(parcours).find(
+      parcours =>
+        parcours.commune === nom
+    );
+
+
+  if (!data) {
+
+    console.error(
+      'Commune introuvable :',
+      nom
+    );
+
+    return;
+
+  }
+
+
+  const couche =
+    couchesParcours[data.id];
+
+
+  if (!couche) {
+
+    console.log(
+      'Le GPX n'est pas encore chargé.'
+    );
+
+    return;
+
+  }
+
+
+  map.fitBounds(
+    couche.getBounds(),
+    {
+      padding: [30, 30]
+    }
+  );
+
+
+  couche.openPopup();
+
+}
+
+
+window.centrerParcours =
+  centrerParcours;
+
+
+/* ==========================================
+   REDIMENSIONNEMENT
+   ========================================== */
+
+window.addEventListener(
+  'resize',
+  function() {
+
+    map.invalidateSize();
+
+  }
+);
+
+
+/* ==========================================
+   FIN
+   ========================================== */
+
+console.log(
+  'Saint-Lô Agglo en VTT - carte initialisée'
+);
 ```
