@@ -1,234 +1,534 @@
-```html
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
-
 <head>
+<meta charset="UTF-8">
+<title>Quibou - Dangy 22km</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  #map-view, #detail-view { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; }
+  #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; }
 
-  <meta charset="utf-8">
+  .info-box {
+    position: absolute; top: 12px; right: 12px; z-index: 1000;
+    background: rgba(255,255,255,0.94); padding: 10px 14px; border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25); font-size: 14px; line-height: 1.4; cursor: pointer;
+  }
+  .info-box strong { display: block; margin-bottom: 4px; font-size: 15px; }
+  .info-box .hint { font-size: 11px; color: #888; margin-top: 4px; }
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1"
-  >
+  #detail-view { display: none; background: #fafafa; overflow-y: auto; box-sizing: border-box; padding: 20px; }
+  .back-btn {
+    display: inline-flex; align-items: center; gap: 6px; background: #fff;
+    border: 1px solid #ddd; border-radius: 8px; padding: 8px 14px; font-size: 14px;
+    cursor: pointer; margin-bottom: 16px;
+  }
+  .detail-title { font-size: 22px; font-weight: 700; margin: 0 0 4px 0; color: #222; }
+  .detail-sub { color: #666; font-size: 14px; margin-bottom: 20px; }
 
-  <title>Saint-Lô Agglo en VTT</title>
+  .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 24px; }
+  .stat-card { background: #fff; border-radius: 10px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .stat-value { font-size: 20px; font-weight: 700; color: #cc0000; }
+  .stat-label { font-size: 12px; color: #888; margin-top: 2px; }
 
-  <meta
-    name="description"
-    content="Découvrez Saint-Lô Agglo en VTT : 60 communes, 60 parcours et des traces GPX."
-  >
+  .section-title { font-size: 15px; font-weight: 600; margin: 24px 0 10px 0; color: #333; }
+  .chart-card { background: #fff; border-radius: 10px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
 
-  <!-- =========================================
-       CSS DU SITE
-       ========================================= -->
+  input[type="email"], input[type="password"], input[type="text"] {
+    width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ddd;
+    border-radius: 8px; font-size: 14px; margin-bottom: 10px;
+  }
+  .btn { border: none; border-radius: 8px; padding: 11px 18px; font-size: 14px; cursor: pointer; }
+  .btn-primary { background: #cc0000; color: #fff; }
+  .btn-green { background: #22aa55; color: #fff; width: 100%; }
+  .btn-grey { background: #888; color: #fff; }
+  .btn-link { background: none; color: #cc0000; text-decoration: underline; padding: 4px 0; font-size: 13px; }
+  .msg { font-size: 12px; margin-top: 8px; min-height: 16px; }
+  .msg.err { color: #cc0000; }
+  .msg.ok { color: #22aa55; }
 
-  <link
-    rel="stylesheet"
-    href="style.css"
-  >
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eee; }
+  th { color: #888; font-weight: 600; font-size: 12px; }
+  .thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; cursor: pointer; display: block; }
 
-  <!-- =========================================
-       LEAFLET
-       ========================================= -->
-
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  >
-
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  ></script>
-
-
-  <!-- =========================================
-       LECTEUR GPX
-       ========================================= -->
-
-  <script
-    src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/2.1.2/gpx.min.js"
-  ></script>
-
+  #lightbox {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    z-index: 3000; align-items: center; justify-content: center; padding: 20px;
+  }
+  #lightbox img { max-width: 100%; max-height: 90vh; border-radius: 8px; }
+</style>
 </head>
-
-
 <body>
 
-
-  <!-- =========================================
-       HEADER
-       ========================================= -->
-
-  <header class="hero">
-
-
-    <!-- NAVIGATION -->
-
-    <nav class="nav">
-
-      <strong>
-        🚵 Saint-Lô Agglo en VTT
-      </strong>
-
-      <a href="#parcours">
-        Parcours
-      </a>
-
-    </nav>
-
-
-    <!-- CONTENU PRINCIPAL DU HERO -->
-
-    <div class="hero-content">
-
-      <span class="badge">
-        60 communes · 60 parcours
-      </span>
-
-
-      <h1>
-        Saint-Lô Agglo<br>
-        <span>en VTT</span>
-      </h1>
-
-
-      <p>
-        Un parcours à découvrir chaque semaine
-        à travers les communes de l'agglomération.
-      </p>
-
-
-      <a
-        class="button"
-        href="#parcours"
-      >
-        Découvrir les parcours
-      </a>
-
+<div id="gate-view" style="position:absolute; inset:0; z-index:2000; background:#fafafa; display:flex; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+  <div style="max-width:360px; width:100%; background:#fff; border-radius:12px; padding:24px; box-shadow:0 2px 12px rgba(0,0,0,0.1);">
+    <div style="font-size:20px; font-weight:700; margin-bottom:4px;">Quibou → Dangy</div>
+    <div style="font-size:13px; color:#888; margin-bottom:20px;">Connectez-vous pour accéder à la carte</div>
+    <input type="text" id="gate-name" placeholder="Prénom (à l'inscription)">
+    <input type="email" id="gate-email" placeholder="Adresse email">
+    <input type="password" id="gate-password" placeholder="Mot de passe (6 caractères min.)">
+    <div style="display:flex; gap:8px;">
+      <button class="btn btn-primary" id="gate-signup" style="flex:1;">Créer un compte</button>
+      <button class="btn btn-grey" id="gate-login" style="flex:1;">Se connecter</button>
     </div>
+    <div class="msg" id="gate-msg"></div>
+  </div>
+</div>
 
-  </header>
+<div id="map-view" style="display:none;">
+  <div id="map"></div>
+  <div class="info-box" id="open-detail">
+    <strong>Quibou → Dangy</strong>
+    22 km · boucle
+    <div style="margin-top:6px;" id="map-ratings">⭐ -- · 💪 --</div>
+    <div class="hint">Touchez le tracé pour la fiche →</div>
+    <div style="margin-top:8px;"><a href="#" id="gate-logout-link" style="font-size:11px; color:#cc0000;">Se déconnecter</a></div>
+  </div>
+</div>
 
+<div id="detail-view">
+  <button class="back-btn" id="back-to-map">← Retour à la carte</button>
+  <div class="detail-title">Quibou → Dangy</div>
+  <div class="detail-sub">Boucle · Manche (50)</div>
 
+  <div class="stats-grid" id="stats-grid"></div>
 
-  <!-- =========================================
-       CONTENU PRINCIPAL
-       ========================================= -->
+  <div class="section-title">Profil altimétrique</div>
+  <div class="chart-card">
+    <svg id="elev-chart" viewBox="0 0 600 220" style="width:100%; height:auto;"></svg>
+  </div>
 
-  <main>
-
-
-    <!-- =======================================
-         STATISTIQUES
-         ======================================= -->
-
-    <section class="stats">
-
-
-      <div>
-
-        <b>
-          60
-        </b>
-
-        <span>
-          communes
-        </span>
-
+  <!-- AUTHENTIFICATION -->
+  <div class="section-title">Mon compte</div>
+  <div class="chart-card" id="auth-card">
+    <div id="auth-logged-out">
+      <input type="text" id="auth-name" placeholder="Prénom (à l'inscription)">
+      <input type="email" id="auth-email" placeholder="Adresse email">
+      <input type="password" id="auth-password" placeholder="Mot de passe (6 caractères min.)">
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-primary" id="btn-signup" style="flex:1;">Créer un compte</button>
+        <button class="btn btn-grey" id="btn-login" style="flex:1;">Se connecter</button>
       </div>
+      <div class="msg" id="auth-msg"></div>
+    </div>
+    <div id="auth-logged-in" style="display:none;">
+      <div style="font-size:14px; margin-bottom:10px;">Connecté en tant que <strong id="user-label"></strong></div>
+      <button class="btn btn-grey" id="btn-logout">Se déconnecter</button>
+    </div>
+  </div>
 
+  <!-- VALIDATION -->
+  <div class="section-title">Valider mon parcours</div>
+  <div class="chart-card" id="validate-card">
+    <div id="validate-locked" style="font-size:13px; color:#888;">
+      Connectez-vous pour valider votre parcours et ajouter une photo.
+    </div>
+    <div id="validate-form" style="display:none;">
+      <label style="font-size:13px; color:#555; display:block; margin-bottom:8px;">Photo du parcours (optionnelle)</label>
+      <input type="file" accept="image/*" id="photo-input" style="font-size:13px; margin-bottom:12px;">
+      <img id="photo-preview" style="display:none; max-width:100%; border-radius:8px; margin-bottom:12px;">
+      <button class="btn btn-green" id="validate-btn">J'ai validé mon parcours ✓</button>
+      <div class="msg" id="validate-msg"></div>
+    </div>
+  </div>
 
-      <div>
+  <!-- TABLEAU PARTICIPANTS -->
+  <div class="section-title">Participants ayant validé</div>
+  <div class="chart-card">
+    <table>
+      <thead>
+        <tr><th>Photo</th><th>Prénom</th><th>Date</th></tr>
+      </thead>
+      <tbody id="participants-body">
+        <tr><td colspan="3" style="color:#888;">Chargement…</td></tr>
+      </tbody>
+    </table>
+  </div>
 
-        <b>
-          60
-        </b>
+  <!-- NOTES -->
+  <div class="section-title">Notes de la communauté</div>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value" id="rating-difficulte">--</div>
+      <div class="stat-label" id="votes-difficulte">Difficulté</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="rating-appreciation">--</div>
+      <div class="stat-label" id="votes-appreciation">Appréciation</div>
+    </div>
+  </div>
 
-        <span>
-          parcours
-        </span>
-
+  <div class="chart-card" id="vote-box" style="margin-bottom:30px;">
+    <div style="font-weight:600; font-size:15px; margin-bottom:12px;">Votez !</div>
+    <div id="vote-locked" style="font-size:13px; color:#888;">Connectez-vous pour voter.</div>
+    <div id="vote-form" style="display:none;">
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px; color:#555;">Difficulté : <span id="vote-diff-val">5</span>/10</label>
+        <input type="range" min="1" max="10" value="5" id="vote-diff" style="width:100%; accent-color:#cc0000;">
       </div>
-
-
-      <div>
-
-        <b id="nombre-realises">
-          0
-        </b>
-
-        <span>
-          parcours réalisés
-        </span>
-
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px; color:#555;">Appréciation : <span id="vote-appr-val">5</span>/10</label>
+        <input type="range" min="1" max="10" value="5" id="vote-appr" style="width:100%; accent-color:#cc0000;">
       </div>
+      <button class="btn btn-primary" id="submit-vote">Envoyer mon vote</button>
+      <div class="msg" id="vote-status"></div>
+    </div>
+  </div>
+</div>
 
+<div id="lightbox"><img id="lightbox-img" src=""></div>
 
-    </section>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  signOut, onAuthStateChanged, updateProfile
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, doc, setDoc, getDoc, collection, onSnapshot, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+const firebaseConfig = {
+  apiKey: "AIzaSyAF-NtdZW--oTnZZgy0C-6qPFi4l5bCrzg",
+  authDomain: "traces-stlo-agglo.firebaseapp.com",
+  projectId: "traces-stlo-agglo",
+  storageBucket: "traces-stlo-agglo.firebasestorage.app",
+  messagingSenderId: "277944207277",
+  appId: "1:277944207277:web:124c31d9903f6a0dfe0324"
+};
 
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-    <!-- =======================================
-         SECTION PARCOURS
-         ======================================= -->
+const TRACE_ID = "quibou_dangy_22k";
+const DATA = {"coords": [[49.06326, -1.18496], [49.0633, -1.185], [49.0645, -1.18747], [49.06495, -1.18648], [49.06545, -1.18601], [49.06594, -1.18485], [49.06618, -1.18485], [49.06646, -1.18494], [49.06652, -1.18515], [49.06741, -1.18569], [49.06857, -1.18571], [49.06922, -1.18624], [49.06982, -1.18783], [49.07077, -1.18861], [49.07108, -1.18908], [49.0713, -1.18886], [49.0715, -1.18903], [49.07223, -1.19026], [49.07216, -1.19049], [49.07234, -1.19105], [49.07175, -1.19268], [49.07093, -1.1935], [49.07033, -1.19461], [49.06961, -1.19521], [49.06911, -1.19406], [49.06885, -1.19436], [49.06862, -1.19517], [49.06838, -1.19558], [49.06798, -1.19575], [49.06682, -1.19712], [49.06642, -1.19781], [49.06634, -1.19813], [49.06732, -1.20002], [49.06769, -1.20004], [49.06784, -1.20041], [49.06793, -1.20114], [49.06839, -1.20122], [49.07141, -1.20247], [49.07309, -1.20219], [49.07346, -1.20247], [49.07346, -1.20356], [49.07389, -1.2036], [49.07406, -1.20285], [49.07386, -1.20257], [49.07397, -1.19908], [49.07436, -1.19914], [49.07587, -1.2006], [49.07684, -1.20178], [49.07747, -1.20279], [49.07883, -1.20255], [49.07954, -1.20234], [49.07986, -1.20178], [49.08035, -1.20122], [49.08082, -1.20056], [49.08132, -1.20094], [49.08221, -1.20013], [49.08274, -1.20069], [49.08335, -1.20193], [49.08402, -1.20122], [49.08434, -1.20122], [49.08502, -1.20075], [49.08602, -1.20064], [49.0871, -1.19948], [49.08848, -1.19833], [49.0894, -1.20021], [49.08978, -1.20197], [49.09054, -1.20294], [49.09055, -1.20405], [49.08947, -1.20474], [49.08918, -1.20539], [49.08755, -1.20652], [49.08763, -1.20742], [49.08713, -1.2086], [49.08597, -1.21015], [49.08527, -1.20918], [49.08465, -1.21017], [49.08482, -1.21144], [49.0837, -1.21229], [49.08329, -1.21262], [49.08349, -1.21324], [49.08257, -1.2147], [49.08195, -1.21558], [49.08143, -1.21541], [49.0789, -1.2209], [49.07621, -1.21832], [49.07543, -1.21933], [49.07491, -1.2191], [49.07154, -1.22131], [49.07154, -1.22167], [49.07136, -1.22219], [49.0707, -1.22161], [49.07019, -1.22021], [49.07001, -1.22002], [49.06911, -1.22079], [49.06735, -1.21998], [49.06662, -1.21963], [49.06499, -1.21957], [49.06428, -1.2194], [49.06396, -1.22008], [49.0634, -1.2206], [49.06254, -1.22217], [49.06181, -1.2191], [49.06161, -1.21882], [49.06154, -1.21794], [49.06046, -1.21749], [49.0595, -1.21614], [49.05887, -1.21425], [49.05807, -1.21427], [49.05713, -1.21474], [49.05593, -1.21307], [49.05489, -1.21442], [49.05455, -1.21639], [49.05385, -1.2192], [49.05391, -1.2212], [49.05254, -1.22122], [49.05236, -1.22101], [49.05166, -1.2206], [49.0516, -1.22083], [49.0516, -1.22137], [49.05115, -1.22313], [49.05183, -1.22367], [49.05083, -1.22433], [49.05022, -1.2239], [49.049, -1.22395], [49.0466, -1.22459], [49.04627, -1.2247], [49.04562, -1.22521], [49.04501, -1.22549], [49.04517, -1.22399], [49.04456, -1.22362], [49.04442, -1.22298], [49.04395, -1.22249], [49.0437, -1.22182], [49.04302, -1.22118], [49.04215, -1.22004], [49.04096, -1.2194], [49.04022, -1.21856], [49.04003, -1.21762], [49.03958, -1.21719], [49.03949, -1.21584], [49.03903, -1.21483], [49.03824, -1.21378], [49.03706, -1.213], [49.03589, -1.21212], [49.03517, -1.21071], [49.03427, -1.20974], [49.03371, -1.20961], [49.0334, -1.20914], [49.03261, -1.20839], [49.03157, -1.20678], [49.03077, -1.20644], [49.0296, -1.20513], [49.02896, -1.20493], [49.03018, -1.19867], [49.03026, -1.19805], [49.03153, -1.19813], [49.03247, -1.19841], [49.03333, -1.19815], [49.03423, -1.19753], [49.03553, -1.1977], [49.03738, -1.19781], [49.03959, -1.19764], [49.04001, -1.19708], [49.04097, -1.19442], [49.04107, -1.19408], [49.04253, -1.19427], [49.04353, -1.19423], [49.04453, -1.19275], [49.04465, -1.19178], [49.04523, -1.19159], [49.04519, -1.19019], [49.04543, -1.19028], [49.04624, -1.19032], [49.04637, -1.19107], [49.04674, -1.19101], [49.04703, -1.19189], [49.04813, -1.19129], [49.04889, -1.18908], [49.04955, -1.1891], [49.05004, -1.18957], [49.05117, -1.19129], [49.05223, -1.19294], [49.05271, -1.19307], [49.0537, -1.19399], [49.05439, -1.19418], [49.05526, -1.19496], [49.05586, -1.19528], [49.05704, -1.19579], [49.05779, -1.19654], [49.05828, -1.19674], [49.05852, -1.19644], [49.0586, -1.19584], [49.05967, -1.19363], [49.05984, -1.19371], [49.06004, -1.19309], [49.06026, -1.19309], [49.06049, -1.19285], [49.06055, -1.19245], [49.06053, -1.19163], [49.06056, -1.19071], [49.06116, -1.18689], [49.06167, -1.18586], [49.06199, -1.18509], [49.06195, -1.18414], [49.06326, -1.18496]], "dist_km": [0.0, 0.005, 0.229, 0.317, 0.382, 0.483, 0.51, 0.541, 0.558, 0.665, 0.794, 0.876, 1.009, 1.129, 1.178, 1.207, 1.233, 1.353, 1.372, 1.417, 1.553, 1.662, 1.767, 1.858, 1.959, 1.995, 2.059, 2.099, 2.145, 2.308, 2.376, 2.401, 2.576, 2.617, 2.649, 2.703, 2.755, 3.103, 3.29, 3.336, 3.416, 3.464, 3.521, 3.552, 3.806, 3.85, 4.048, 4.186, 4.288, 4.44, 4.521, 4.575, 4.643, 4.714, 4.776, 4.891, 4.963, 5.076, 5.166, 5.202, 5.285, 5.397, 5.543, 5.718, 5.889, 6.024, 6.134, 6.215, 6.345, 6.402, 6.601, 6.668, 6.77, 6.941, 7.046, 7.146, 7.241, 7.38, 7.431, 7.482, 7.629, 7.723, 7.782, 8.271, 8.625, 8.738, 8.798, 9.206, 9.233, 9.275, 9.36, 9.477, 9.501, 9.616, 9.82, 9.905, 10.087, 10.167, 10.228, 10.3, 10.449, 10.687, 10.718, 10.782, 10.907, 11.052, 11.206, 11.295, 11.405, 11.586, 11.738, 11.886, 12.105, 12.251, 12.403, 12.429, 12.512, 12.53, 12.569, 12.707, 12.792, 12.914, 12.988, 13.124, 13.395, 13.432, 13.514, 13.585, 13.695, 13.768, 13.817, 13.881, 13.937, 14.026, 14.153, 14.294, 14.396, 14.468, 14.527, 14.626, 14.715, 14.832, 14.975, 15.12, 15.25, 15.373, 15.436, 15.484, 15.588, 15.753, 15.845, 16.006, 16.079, 16.555, 16.601, 16.743, 16.849, 16.947, 17.056, 17.201, 17.407, 17.653, 17.715, 17.937, 17.964, 18.127, 18.238, 18.393, 18.465, 18.531, 18.633, 18.661, 18.751, 18.807, 18.849, 18.92, 19.05, 19.232, 19.306, 19.37, 19.547, 19.716, 19.77, 19.899, 19.977, 20.089, 20.16, 20.296, 20.396, 20.452, 20.487, 20.531, 20.732, 20.751, 20.802, 20.826, 20.857, 20.887, 20.947, 21.014, 21.3, 21.394, 21.461, 21.53, 21.687], "eles": [103.7, 103.2, 98.4, 95.7, 91.5, 94.2, 94.8, 94.9, 93.2, 86.4, 78.5, 75.1, 67.3, 59.8, 55.1, 54.6, 52.1, 57.1, 57.1, 62.4, 65.1, 63.5, 60.5, 55.6, 55.1, 54.6, 54.0, 54.1, 55.4, 56.3, 56.9, 56.9, 59.5, 60.9, 62.9, 65.0, 66.7, 78.0, 83.2, 85.9, 89.4, 91.0, 90.2, 89.7, 86.8, 89.7, 96.0, 96.8, 95.2, 89.0, 87.0, 88.3, 89.0, 90.1, 90.1, 91.1, 88.7, 85.0, 84.4, 83.6, 82.2, 78.3, 74.4, 74.5, 68.4, 61.7, 54.5, 53.6, 57.3, 59.5, 58.7, 62.7, 65.6, 66.8, 59.1, 60.2, 65.8, 68.7, 69.3, 71.9, 72.1, 74.1, 71.2, 68.6, 70.0, 73.6, 75.5, 84.8, 85.5, 86.0, 88.4, 89.0, 89.0, 94.2, 100.1, 103.2, 106.0, 104.9, 103.7, 103.4, 104.1, 93.4, 92.1, 93.4, 86.7, 88.9, 81.7, 82.4, 77.7, 71.3, 72.3, 84.2, 94.1, 97.1, 93.6, 92.3, 83.0, 82.9, 85.0, 82.4, 90.4, 79.0, 77.7, 93.2, 103.6, 104.4, 105.9, 105.8, 104.0, 102.4, 100.1, 99.2, 97.9, 95.4, 94.0, 99.6, 98.2, 93.0, 96.8, 94.0, 91.5, 105.2, 111.4, 115.1, 112.9, 106.6, 108.5, 111.3, 114.9, 123.9, 130.2, 137.4, 138.0, 140.9, 141.0, 138.5, 133.2, 134.0, 132.8, 128.4, 125.5, 119.2, 116.9, 118.5, 118.2, 112.9, 109.3, 108.0, 105.5, 104.8, 100.8, 102.1, 104.2, 105.9, 105.5, 106.7, 102.0, 90.7, 87.8, 86.4, 91.4, 88.3, 85.9, 86.9, 85.3, 84.4, 78.7, 75.7, 71.6, 68.1, 66.5, 69.9, 82.9, 85.6, 84.4, 86.1, 87.0, 85.8, 83.6, 83.5, 96.7, 100.1, 102.9, 103.0, 103.7], "stats": {"distance_km": 21.69, "gain_m": 327, "loss_m": 327, "min_ele": 52, "max_ele": 141}};
 
-    <section
-      id="parcours"
-      class="section"
-    >
+/* ---------- CARTE ---------- */
+const map = L.map('map');
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
 
+const track = L.polygon(DATA.coords, {
+  color: '#cc0000', weight: 3, fillColor: '#ff0000', fillOpacity: 0.35
+}).addTo(map);
 
-      <!-- TITRE -->
+map.fitBounds(track.getBounds(), { padding: [30, 30] });
+setTimeout(() => map.invalidateSize(), 200);
+window.addEventListener('resize', () => map.invalidateSize());
 
-      <div class="section-title">
+/* ---------- NAVIGATION ---------- */
+const mapView = document.getElementById('map-view');
+const detailView = document.getElementById('detail-view');
+function showDetail() { mapView.style.display = 'none'; detailView.style.display = 'block'; drawChart(); }
+function showMap() { detailView.style.display = 'none'; mapView.style.display = 'block'; setTimeout(() => map.invalidateSize(), 50); }
+track.on('click', showDetail);
+document.getElementById('open-detail').addEventListener('click', showDetail);
+document.getElementById('back-to-map').addEventListener('click', showMap);
 
+/* ---------- STATS ---------- */
+const stats = DATA.stats;
+const statsGrid = document.getElementById('stats-grid');
+[
+  { value: stats.distance_km + ' km', label: 'Distance totale' },
+  { value: '+' + stats.gain_m + ' m', label: 'Dénivelé positif' },
+  { value: '-' + stats.loss_m + ' m', label: 'Dénivelé négatif' },
+  { value: stats.min_ele + ' - ' + stats.max_ele + ' m', label: 'Altitude min / max' }
+].forEach(item => {
+  const div = document.createElement('div');
+  div.className = 'stat-card';
+  div.innerHTML = '<div class="stat-value">' + item.value + '</div><div class="stat-label">' + item.label + '</div>';
+  statsGrid.appendChild(div);
+});
 
-        <div>
+/* ---------- PROFIL ALTIMÉTRIQUE ---------- */
+function drawChart() {
+  const svg = document.getElementById('elev-chart');
+  if (svg.dataset.drawn) return;
+  svg.dataset.drawn = '1';
+  const dist = DATA.dist_km, eles = DATA.eles;
+  const W = 600, H = 220, padL = 40, padR = 10, padT = 10, padB = 30;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const maxD = dist[dist.length - 1];
+  const minE = Math.min(...eles), maxE = Math.max(...eles);
+  const eRange = (maxE - minE) || 1;
+  const x = d => padL + (d / maxD) * plotW;
+  const y = e => padT + plotH - ((e - minE) / eRange) * plotH;
+  let path = 'M ' + x(dist[0]) + ' ' + y(eles[0]);
+  for (let i = 1; i < dist.length; i++) path += ' L ' + x(dist[i]) + ' ' + y(eles[i]);
+  const area = path + ' L ' + x(maxD) + ' ' + (padT + plotH) + ' L ' + x(0) + ' ' + (padT + plotH) + ' Z';
+  svg.innerHTML =
+    '<path d="' + area + '" fill="#ff0000" opacity="0.15"></path>' +
+    '<path d="' + path + '" fill="none" stroke="#cc0000" stroke-width="2"></path>' +
+    '<line x1="' + padL + '" y1="' + (padT + plotH) + '" x2="' + (padL + plotW) + '" y2="' + (padT + plotH) + '" stroke="#ccc"></line>' +
+    '<text x="4" y="' + (y(maxE) + 4) + '" font-size="10" fill="#888">' + Math.round(maxE) + 'm</text>' +
+    '<text x="4" y="' + (y(minE) + 4) + '" font-size="10" fill="#888">' + Math.round(minE) + 'm</text>' +
+    '<text x="' + padL + '" y="' + (H - 8) + '" font-size="10" fill="#888">0 km</text>' +
+    '<text x="' + (padL + plotW - 34) + '" y="' + (H - 8) + '" font-size="10" fill="#888">' + maxD.toFixed(1) + ' km</text>';
+}
 
-          <span class="eyebrow">
-            LA CARTE
-          </span>
+/* ---------- GATE DE CONNEXION ---------- */
+const gateView = document.getElementById('gate-view');
+const gateMsg = document.getElementById('gate-msg');
 
+document.getElementById('gate-signup').addEventListener('click', async () => {
+  const name = document.getElementById('gate-name').value.trim();
+  const email = document.getElementById('gate-email').value.trim();
+  const pwd = document.getElementById('gate-password').value;
+  if (!name) { gateMsg.className = 'msg err'; gateMsg.textContent = 'Merci d\'indiquer un prénom.'; return; }
+  gateMsg.className = 'msg'; gateMsg.textContent = 'Création en cours…';
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pwd);
+    await updateProfile(cred.user, { displayName: name });
+  } catch (e) {
+    gateMsg.className = 'msg err'; gateMsg.textContent = errFr(e.code);
+  }
+});
 
-          <h2>
-            Les parcours
-          </h2>
+document.getElementById('gate-login').addEventListener('click', async () => {
+  const email = document.getElementById('gate-email').value.trim();
+  const pwd = document.getElementById('gate-password').value;
+  gateMsg.className = 'msg'; gateMsg.textContent = 'Connexion…';
+  try {
+    await signInWithEmailAndPassword(auth, email, pwd);
+  } catch (e) {
+    gateMsg.className = 'msg err'; gateMsg.textContent = errFr(e.code);
+  }
+});
 
-        </div>
+/* ---------- AUTHENTIFICATION ---------- */
+const authMsg = document.getElementById('auth-msg');
+function errFr(code) {
+  const m = {
+    'auth/email-already-in-use': 'Cette adresse est déjà utilisée.',
+    'auth/invalid-email': 'Adresse email invalide.',
+    'auth/weak-password': 'Mot de passe trop court (6 caractères minimum).',
+    'auth/invalid-credential': 'Email ou mot de passe incorrect.',
+    'auth/wrong-password': 'Mot de passe incorrect.',
+    'auth/user-not-found': 'Aucun compte avec cette adresse.',
+    'auth/too-many-requests': 'Trop de tentatives, réessayez plus tard.',
+    'auth/operation-not-allowed': "L'authentification par email n'est pas activée dans Firebase."
+  };
+  return m[code] || 'Erreur : ' + code;
+}
 
+document.getElementById('btn-signup').addEventListener('click', async () => {
+  const name = document.getElementById('auth-name').value.trim();
+  const email = document.getElementById('auth-email').value.trim();
+  const pwd = document.getElementById('auth-password').value;
+  if (!name) { authMsg.className = 'msg err'; authMsg.textContent = 'Merci d\'indiquer un prénom.'; return; }
+  authMsg.className = 'msg'; authMsg.textContent = 'Création en cours…';
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pwd);
+    await updateProfile(cred.user, { displayName: name });
+    authMsg.className = 'msg ok'; authMsg.textContent = 'Compte créé !';
+  } catch (e) {
+    authMsg.className = 'msg err'; authMsg.textContent = errFr(e.code);
+  }
+});
 
-        <p>
-          🔴 À découvrir · 🟢 Réalisé
-        </p>
+document.getElementById('btn-login').addEventListener('click', async () => {
+  const email = document.getElementById('auth-email').value.trim();
+  const pwd = document.getElementById('auth-password').value;
+  authMsg.className = 'msg'; authMsg.textContent = 'Connexion…';
+  try {
+    await signInWithEmailAndPassword(auth, email, pwd);
+    authMsg.className = 'msg ok'; authMsg.textContent = '';
+  } catch (e) {
+    authMsg.className = 'msg err'; authMsg.textContent = errFr(e.code);
+  }
+});
 
-      </div>
+document.getElementById('btn-logout').addEventListener('click', () => signOut(auth));
+document.getElementById('gate-logout-link').addEventListener('click', (e) => { e.preventDefault(); signOut(auth); });
 
+let currentUser = null;
 
+onAuthStateChanged(auth, async (user) => {
+  currentUser = user;
+  const inEl = document.getElementById('auth-logged-in');
+  const outEl = document.getElementById('auth-logged-out');
+  if (user) {
+    gateView.style.display = 'none';
+    mapView.style.display = 'block';
+    setTimeout(() => map.invalidateSize(), 50);
 
-      <!-- =====================================
-           CARTE INTERACTIVE
-           ===================================== -->
+    outEl.style.display = 'none';
+    inEl.style.display = 'block';
+    document.getElementById('user-label').textContent = user.displayName || user.email;
+    document.getElementById('validate-locked').style.display = 'none';
+    document.getElementById('validate-form').style.display = 'block';
+    document.getElementById('vote-locked').style.display = 'none';
+    document.getElementById('vote-form').style.display = 'block';
+    await loadMyValidation();
+  } else {
+    gateView.style.display = 'flex';
+    mapView.style.display = 'none';
+    detailView.style.display = 'none';
 
-      <div id="map"></div>
+    outEl.style.display = 'block';
+    inEl.style.display = 'none';
+    document.getElementById('validate-locked').style.display = 'block';
+    document.getElementById('validate-form').style.display = 'none';
+    document.getElementById('vote-locked').style.display = 'block';
+    document.getElementById('vote-form').style.display = 'none';
+    setTrackValidated(false);
+  }
+});
 
+/* ---------- COULEUR DU TRACÉ ---------- */
+function setTrackValidated(v) {
+  track.setStyle(v
+    ? { color: '#1a8a3d', fillColor: '#22aa55' }
+    : { color: '#cc0000', fillColor: '#ff0000' });
+}
 
+/* ---------- PHOTO : compression côté navigateur ---------- */
+let photoDataUrl = null;
+document.getElementById('photo-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxSide = 800;
+      let { width, height } = img;
+      const scale = Math.min(1, maxSide / Math.max(width, height));
+      width = Math.round(width * scale); height = Math.round(height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      photoDataUrl = canvas.toDataURL('image/jpeg', 0.65);
+      const prev = document.getElementById('photo-preview');
+      prev.src = photoDataUrl; prev.style.display = 'block';
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
 
-      <!-- =====================================
-           LISTE DES PARCOURS
-           ===================================== -->
+/* ---------- VALIDATION ---------- */
+const validateMsg = document.getElementById('validate-msg');
+const validateBtn = document.getElementById('validate-btn');
 
-      <div class="cards">
+async function loadMyValidation() {
+  if (!currentUser) return;
+  try {
+    const snap = await getDoc(doc(db, 'traces', TRACE_ID, 'validations', currentUser.uid));
+    if (snap.exists()) {
+      setTrackValidated(true);
+      validateBtn.textContent = 'Parcours validé ✓ (mettre à jour)';
+      validateMsg.className = 'msg ok';
+      validateMsg.textContent = 'Votre tracé apparaît en vert.';
+    } else {
+      setTrackValidated(false);
+      validateBtn.textContent = "J'ai validé mon parcours ✓";
+    }
+  } catch (e) {
+    validateMsg.className = 'msg err';
+    validateMsg.textContent = 'Lecture impossible : ' + e.code;
+  }
+}
 
+validateBtn.addEventListener('click', async () => {
+  if (!currentUser) return;
+  validateMsg.className = 'msg'; validateMsg.textContent = 'Enregistrement…';
+  try {
+    const payload = {
+      nom: currentUser.displayName || currentUser.email,
+      date: serverTimestamp()
+    };
+    if (photoDataUrl) payload.photo = photoDataUrl;
+    await setDoc(doc(db, 'traces', TRACE_ID, 'validations', currentUser.uid), payload, { merge: true });
+    setTrackValidated(true);
+    validateBtn.textContent = 'Parcours validé ✓ (mettre à jour)';
+    validateMsg.className = 'msg ok';
+    validateMsg.textContent = 'Validation enregistrée !';
+  } catch (e) {
+    validateMsg.className = 'msg err';
+    validateMsg.textContent = 'Erreur : ' + e.code;
+  }
+});
 
-        <!-- ===================================
-             QUIBOU → DANGY
-             =================================== -->
+/* ---------- TABLEAU DES PARTICIPANTS (temps réel) ---------- */
+const tbody = document.getElementById('participants-body');
+onSnapshot(collection(db, 'traces', TRACE_ID, 'validations'), (snap) => {
+  if (snap.empty) {
+    tbody.innerHTML = '<tr><td colspan="3" style="color:#888;">Aucune validation pour le moment.</td></tr>';
+    return;
+  }
+  const rows = [];
+  snap.forEach(d => rows.push(d.data()));
+  rows.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
+  tbody.innerHTML = rows.map(r => {
+    const dateStr = r.date?.seconds
+      ? new Date(r.date.seconds * 1000).toLocaleDateString('fr-FR')
+      : '—';
+    const photo = r.photo
+      ? '<img class="thumb" src="' + r.photo + '" data-full="' + r.photo + '">'
+      : '<span style="color:#ccc;">—</span>';
+    return '<tr><td>' + photo + '</td><td>' + (r.nom || '—') + '</td><td>' + dateStr + '</td></tr>';
+  }).join('');
+}, (e) => {
+  tbody.innerHTML = '<tr><td colspan="3" style="color:#cc0000;">Erreur : ' + e.code + '</td></tr>';
+});
 
-        <article
-          class="card red"
-          data-parcours="quibou-dangy"
-        >
+/* ---------- LIGHTBOX PHOTO ---------- */
+const lightbox = document.getElementById('lightbox');
+document.addEventListener('click', (e) => {
+  if (e.target.classList.contains('thumb')) {
+    document.getElementById('lightbox-img').src = e.target.dataset.full;
+    lightbox.style.display = 'flex';
+  } else if (e.target === lightbox || e.target.id === 'lightbox-img') {
+    lightbox.style.display = 'none';
+  }
+});
 
+/* ---------- VOTES ---------- */
+document.getElementById('vote-diff').addEventListener('input', e => {
+  document.getElementById('vote-diff-val').textContent = e.target.value;
+});
+document.getElementById('vote-appr').addEventListener('input', e => {
+  document.getElementById('vote-appr-val').textContent = e.target.value;
+});
 
-          <span>
-```
+document.getElementById('submit-vote').addEventListener('click', async () => {
+  if (!currentUser) return;
+  const status = document.getElementById('vote-status');
+  status.className = 'msg'; status.textContent = 'Envoi…';
+  try {
+    await setDoc(doc(db, 'traces', TRACE_ID, 'votes', currentUser.uid), {
+      nom: currentUser.displayName || currentUser.email,
+      difficulte: parseInt(document.getElementById('vote-diff').value, 10),
+      appreciation: parseInt(document.getElementById('vote-appr').value, 10),
+      date: serverTimestamp()
+    });
+    status.className = 'msg ok'; status.textContent = 'Merci pour votre vote !';
+  } catch (e) {
+    status.className = 'msg err'; status.textContent = 'Erreur : ' + e.code;
+  }
+});
+
+onSnapshot(collection(db, 'traces', TRACE_ID, 'votes'), (snap) => {
+  let dSum = 0, aSum = 0, n = 0;
+  snap.forEach(d => {
+    const v = d.data();
+    if (typeof v.difficulte === 'number') { dSum += v.difficulte; aSum += v.appreciation; n++; }
+  });
+  const dAvg = n ? (dSum / n).toFixed(1) : '--';
+  const aAvg = n ? (aSum / n).toFixed(1) : '--';
+  document.getElementById('map-ratings').textContent = '⭐ ' + aAvg + ' · 💪 ' + dAvg;
+  document.getElementById('rating-difficulte').textContent = dAvg + '/10';
+  document.getElementById('rating-appreciation').textContent = aAvg + '/10';
+  document.getElementById('votes-difficulte').textContent = 'Difficulté (' + n + ' vote' + (n > 1 ? 's' : '') + ')';
+  document.getElementById('votes-appreciation').textContent = 'Appréciation (' + n + ' vote' + (n > 1 ? 's' : '') + ')';
+});
+</script>
+</body>
+</html>
