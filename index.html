@@ -74,6 +74,7 @@
   <div class="site-logo"><span class="icon">🥾</span> Challenge Saint-Lô Agglo</div>
   <nav class="nav-menu">
     <span class="nav-user" id="header-user-label"></span>
+    <a href="#" id="nav-home-link">Accueil</a>
     <a href="#" id="nav-logout-link">Déconnexion</a>
   </nav>
 </header>
@@ -292,6 +293,7 @@ document.getElementById('gate-login').addEventListener('click', async () => {
     gateMsg.className = 'msg err'; gateMsg.textContent = errFr(e.code);
   }
 });
+document.getElementById('nav-home-link').addEventListener('click', (e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
 document.getElementById('nav-logout-link').addEventListener('click', (e) => { e.preventDefault(); signOut(auth); });
 
 onAuthStateChanged(auth, async (user) => {
