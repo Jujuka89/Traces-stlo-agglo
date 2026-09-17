@@ -42,12 +42,7 @@
 
   #home-view { display: none; }
   #home-view.has-header .content { padding-top: 76px; }
-
-  #home-map { width: 300%; height: 600px; display: block; }
-
-  
-  
-  
+  #home-map { width: 100%; height: 400px; display: block; }
   .trace-card {
     background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08); display: flex; justify-content: space-between; align-items: center;
@@ -232,7 +227,7 @@ const homeView = document.getElementById('home-view');
 const appView = document.getElementById('app-view');
 
 // Liste des parcours (pour l'instant un seul : TRACE)
-const TRACE_LIST = [{ id: TRACE.id, name: 'Quibou → Dangy', subtitle: 'Boucle · Manche (50)', distance_km: TRACE.stats.distance_km }];
+const TRACE_LIST = [{ id: TRACE.id, name: 'Quibou → Dangy', subtitle: 'Boucle · Manche (50)', distance_km: TRACE.stats.distance_km, participants: 0 }];
 
 let homeMap = null;
 
@@ -273,7 +268,13 @@ function renderTraceList() {
     const card = document.createElement('div');
     card.className = 'trace-card';
     card.innerHTML =
-      '<div><div class="trace-card-name">' + t.name + '</div><div class="trace-card-sub">' + t.subtitle + '</div></div>' +
+      '<div style="flex:1;">' +
+        '<div class="trace-card-name">' + t.name + '</div>' +
+        '<div class="trace-card-sub">' + t.subtitle + '</div>' +
+        '<div class="trace-card-sub" style="margin-top:6px;">👥 ' +
+          t.participants + ' participant' + (t.participants > 1 ? 's' : '') +
+        '</div>' +
+      '</div>' +
       '<div class="trace-card-dist">' + t.distance_km + ' km</div>';
     card.addEventListener('click', () => showApp());
     list.appendChild(card);
@@ -524,6 +525,13 @@ function watchTraceData() {
   if (unsubVotes) unsubVotes();
 
   unsubValidations = onSnapshot(collection(db, 'traces', TRACE.id, 'validations'), (snap) => {
+    // Mise à jour automatique du nombre de participants sur la page principale
+    const trace = TRACE_LIST.find(t => t.id === TRACE.id);
+    if (trace) {
+      trace.participants = snap.size;
+      renderTraceList();
+    }
+
     if (snap.empty) {
       tbody.innerHTML = '<tr><td colspan="3" style="color:#888;">Aucune validation pour le moment.</td></tr>';
       return;
