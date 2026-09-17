@@ -353,8 +353,7 @@ function fillDetail() {
   [
     { value: TRACE.stats.distance_km + ' km', label: 'Distance totale' },
     { value: '+' + TRACE.stats.gain_m + ' m', label: 'Dénivelé positif' },
-    { value: '-' + TRACE.stats.loss_m + ' m', label: 'Dénivelé négatif' },
-    { value: TRACE.stats.min_ele + ' - ' + TRACE.stats.max_ele + ' m', label: 'Altitude min / max' }
+
   ].forEach(item => {
     const div = document.createElement('div');
     div.className = 'stat-card';
