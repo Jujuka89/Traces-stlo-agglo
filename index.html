@@ -194,7 +194,7 @@ async function refreshTraceColors() {
 
 /* ---------- PANNEAU GLISSANT (fiche détaillée sans rechargement) ---------- */
 function openTraceOverlay(t) {
-  traceFrame.src = t.page;
+  traceFrame.src = t.page + '?view=detail';
   traceOverlay.classList.add('open');
 }
 function closeTraceOverlay() {
