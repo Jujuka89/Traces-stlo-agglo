@@ -40,16 +40,18 @@
   .msg.err { color: #cc0000; }
   .msg.ok { color: #22aa55; }
 
-  #home-view { display: none; position: fixed; inset: 0; }
-  #home-view.has-header #home-map { top: 56px; }
-  #home-map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; }
-  .map-title-box {
-    position: absolute; top: 12px; left: 12px; z-index: 1000;
-    background: rgba(255,255,255,0.94); padding: 8px 14px; border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25); font-size: 13px; color: #555;
+  #home-view { display: none; }
+  #home-view.has-header #home-map-wrap { margin-top: 56px; }
+  #home-map { width: 100%; height: 260px; }
+  .trace-card {
+    background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08); display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer;
   }
-  .map-title-box strong { color: #222; }
-  #home-view.has-header .map-title-box { top: 68px; }
+  .trace-card:active { background: #f5f5f5; }
+  .trace-card-name { font-size: 16px; font-weight: 700; color: #222; }
+  .trace-card-sub { font-size: 13px; color: #888; margin-top: 2px; }
+  .trace-card-dist { font-size: 15px; font-weight: 700; color: #cc0000; white-space: nowrap; margin-left: 12px; }
   .leaflet-popup-content { font-size: 13px; }
   .popup-name { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
   .popup-dist { color: #cc0000; font-weight: 600; margin-bottom: 8px; }
@@ -120,8 +122,12 @@
 </div>
 
 <div id="home-view">
-  <div id="home-map"></div>
-  <div class="map-title-box"><strong>Parcours disponibles</strong><br>Touchez un tracé pour l'ouvrir</div>
+  <div id="home-map-wrap"><div id="home-map"></div></div>
+  <div class="content">
+    <div class="page-title">Parcours disponibles</div>
+    <div class="page-sub">Choisissez une trace pour voir la carte, valider votre passage et voter.</div>
+    <div id="trace-list"></div>
+  </div>
 </div>
 
 <div id="app-view">
@@ -253,6 +259,21 @@ function renderHome() {
 
   setTimeout(() => homeMap.invalidateSize(), 100);
   refreshHomeColors();
+  renderTraceList();
+}
+
+function renderTraceList() {
+  const list = document.getElementById('trace-list');
+  list.innerHTML = '';
+  TRACE_LIST.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'trace-card';
+    card.innerHTML =
+      '<div><div class="trace-card-name">' + t.name + '</div><div class="trace-card-sub">' + t.subtitle + '</div></div>' +
+      '<div class="trace-card-dist">' + t.distance_km + ' km</div>';
+    card.addEventListener('click', () => showApp());
+    list.appendChild(card);
+  });
 }
 
 async function refreshHomeColors() {
