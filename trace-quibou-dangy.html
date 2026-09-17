@@ -217,6 +217,7 @@ function showMapView() {
   setTimeout(() => map && map.invalidateSize(), 50);
 }
 function showDetailView() {
+  gateView.style.display = 'none'; siteHeader.style.display = 'flex';
   mapView.style.display = 'none';
   detailView.classList.add('has-header'); detailView.style.display = 'block';
   drawChart();
@@ -325,6 +326,8 @@ document.getElementById('gate-login').addEventListener('click', async () => {
   }
 });
 
+const wantsDetailDirectly = new URLSearchParams(window.location.search).get('view') === 'detail';
+
 onAuthStateChanged(auth, async (user) => {
   currentUser = user;
   if (user) {
@@ -333,7 +336,11 @@ onAuthStateChanged(auth, async (user) => {
     fillDetail();
     watchTraceData();
     await loadMyValidation();
-    showMapView();
+    if (wantsDetailDirectly) {
+      showDetailView();
+    } else {
+      showMapView();
+    }
   } else {
     if (unsubValidations) unsubValidations();
     if (unsubVotes) unsubVotes();
