@@ -5,97 +5,148 @@
 <title>Challenge Saint-Lô Agglo</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  html, body { margin: 0; padding: 0; width: 100%; min-height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fafafa; }
+  :root {
+    --paper: #EEF1E6;
+    --paper-deep: #E3E7D6;
+    --ink: #22321F;
+    --forest: #2E4A31;
+    --forest-deep: #1E3120;
+    --moss: #66805A;
+    --moss-soft: #94A886;
+    --brick: #A8402C;
+    --brick-deep: #7E2F20;
+    --sand: #D9C9A0;
+    --white: #FBFAF4;
+    --line: #CBC3A3;
+  }
+
+  html, body {
+    margin: 0; padding: 0; width: 100%; min-height: 100%;
+    font-family: "Work Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--paper);
+    background-image:
+      repeating-radial-gradient(circle at 18% 24%, rgba(46,74,49,0.05) 0, rgba(46,74,49,0.05) 1px, transparent 1px, transparent 38px),
+      repeating-radial-gradient(circle at 82% 68%, rgba(46,74,49,0.04) 0, rgba(46,74,49,0.04) 1px, transparent 1px, transparent 50px);
+    color: var(--ink);
+  }
+
+  h1, h2, h3 { font-family: "Fraunces", Georgia, serif; }
 
   #site-header {
     display: none;
-    position: fixed; top: 0; left: 0; right: 0; height: 56px;
-    background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    position: fixed; top: 0; left: 0; right: 0; height: 58px;
+    background: var(--forest); box-shadow: 0 2px 10px rgba(30,49,32,0.25);
     align-items: center; justify-content: space-between;
-    padding: 0 16px; box-sizing: border-box; z-index: 2200;
+    padding: 0 18px; box-sizing: border-box; z-index: 2200;
   }
-  .site-logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: #222; }
-  .site-logo .icon { font-size: 22px; }
+  .site-logo { display: flex; align-items: center; gap: 9px; font-family: "Fraunces", serif; font-weight: 600; font-size: 16px; color: var(--white); }
+  .site-logo .icon { font-size: 20px; }
   .nav-menu { display: flex; align-items: center; gap: 18px; }
-  .nav-menu a { color: #555; text-decoration: none; font-size: 13px; cursor: pointer; }
-  .nav-menu a:hover { color: #cc0000; }
-  .nav-user { font-size: 12px; color: #999; margin-right: 4px; }
+  .nav-menu a { color: var(--sand); text-decoration: none; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .nav-menu a:hover { color: var(--white); }
+  .nav-user { font-size: 12px; color: rgba(251,250,244,0.6); margin-right: 4px; }
 
   #gate-view {
     position: fixed; inset: 0; z-index: 2500;
-    background: #fafafa; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;
+    background-color: var(--paper);
+    background-image:
+      repeating-radial-gradient(circle at 18% 24%, rgba(46,74,49,0.05) 0, rgba(46,74,49,0.05) 1px, transparent 1px, transparent 38px),
+      repeating-radial-gradient(circle at 82% 68%, rgba(46,74,49,0.04) 0, rgba(46,74,49,0.04) 1px, transparent 1px, transparent 50px);
+    display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;
   }
-  #gate-view .card { max-width: 360px; width: 100%; background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+  #gate-view .card { max-width: 380px; width: 100%; background: var(--white); border: 1px solid var(--line); border-radius: 6px; padding: 30px; box-shadow: 0 8px 28px rgba(34,50,31,0.10); }
   input[type="email"], input[type="password"], input[type="text"] {
-    width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ddd;
-    border-radius: 8px; font-size: 14px; margin-bottom: 10px;
+    width: 100%; box-sizing: border-box; padding: 11px 12px; border: 1px solid var(--line);
+    border-radius: 4px; font-size: 14px; margin-bottom: 10px; font-family: "Work Sans", sans-serif;
+    background: var(--white); color: var(--ink);
   }
-  .btn { border: none; border-radius: 8px; padding: 11px 18px; font-size: 14px; cursor: pointer; }
-  .btn-primary { background: #cc0000; color: #fff; }
-  .btn-grey { background: #888; color: #fff; }
-  .btn-green { background: #22aa55; color: #fff; width: 100%; }
-  .btn-outline { background: #fff; color: #cc0000; border: 1px solid #cc0000; width: 100%; text-align: center; text-decoration: none; display: block; box-sizing: border-box; padding: 11px; }
+  input[type="email"]:focus, input[type="password"]:focus, input[type="text"]:focus {
+    outline: none; border-color: var(--brick);
+  }
+  .btn { border: none; border-radius: 4px; padding: 12px 18px; font-size: 14px; font-weight: 600; font-family: "Work Sans", sans-serif; cursor: pointer; transition: filter 0.15s ease; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { filter: brightness(0.95); }
+  .btn-primary { background: var(--brick); color: var(--white); }
+  .btn-grey { background: var(--moss); color: var(--white); }
+  .btn-green { background: var(--forest); color: var(--white); width: 100%; }
+  .btn-outline { background: transparent; color: var(--brick); border: 1px solid var(--brick); width: 100%; text-align: center; text-decoration: none; display: block; box-sizing: border-box; padding: 11px; border-radius: 4px; font-weight: 600; transition: background 0.15s ease, color 0.15s ease; }
+  .btn-outline:hover { background: var(--brick); color: var(--white); }
   .msg { font-size: 12px; margin-top: 8px; min-height: 16px; }
-  .msg.err { color: #cc0000; }
-  .msg.ok { color: #22aa55; }
+  .msg.err { color: var(--brick); }
+  .msg.ok { color: var(--forest); }
 
   #home-view { display: none; }
-  #home-view.has-header .content { padding-top: 76px; }
+  #home-view.has-header .content { padding-top: 82px; }
   #home-map { width: 100%; height: 400px; display: block; }
-  .trace-card {
-    background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08); display: flex; justify-content: space-between; align-items: center;
-    cursor: pointer;
+  #home-map-wrap, #map-wrap {
+    border: 3px solid var(--forest) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 4px 0 var(--sand);
+    margin-bottom: 6px;
   }
-  .trace-card:active { background: #f5f5f5; }
-  .trace-card-name { font-size: 16px; font-weight: 700; color: #222; }
-  .trace-card-sub { font-size: 13px; color: #888; margin-top: 2px; }
-  .trace-card-dist { font-size: 15px; font-weight: 700; color: #cc0000; white-space: nowrap; margin-left: 12px; }
-  .leaflet-popup-content { font-size: 13px; }
-  .popup-name { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
-  .popup-dist { color: #cc0000; font-weight: 600; margin-bottom: 8px; }
+  .trace-card {
+    background: var(--white); border: 1px solid var(--line); border-radius: 5px; padding: 18px 20px; margin-bottom: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .trace-card:hover { border-color: var(--brick); }
+  .trace-card:active { background: var(--paper-deep); }
+  .trace-card-name { font-family: "Fraunces", serif; font-size: 18px; font-weight: 600; color: var(--ink); }
+  .trace-card-sub { font-size: 13px; color: var(--moss); margin-top: 3px; }
+  .trace-card-dist { font-family: "Fraunces", serif; font-size: 16px; font-weight: 700; color: var(--brick); white-space: nowrap; margin-left: 12px; }
+  .leaflet-popup-content { font-size: 13px; font-family: "Work Sans", sans-serif; }
+  .popup-name { font-family: "Fraunces", serif; font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+  .popup-dist { color: var(--brick); font-weight: 600; margin-bottom: 8px; }
   .popup-link {
-    display: inline-block; background: #cc0000; color: #fff; text-decoration: none;
-    padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; border: none;
+    display: inline-block; background: var(--brick); color: var(--white); text-decoration: none;
+    padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; border: none; font-weight: 600;
   }
 
   .back-btn {
-    display: inline-flex; align-items: center; gap: 6px; background: #fff;
-    border: 1px solid #ddd; border-radius: 8px; padding: 8px 14px; font-size: 13px;
-    cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: inline-flex; align-items: center; gap: 6px; background: var(--white);
+    border: 1px solid var(--line); border-radius: 4px; padding: 8px 14px; font-size: 13px;
+    font-weight: 600; color: var(--forest); cursor: pointer; font-family: "Work Sans", sans-serif;
   }
+  .back-btn:hover { border-color: var(--forest); }
 
   #app-view { display: none; }
-  #app-view.has-header .content { padding-top: 76px; }
+  #app-view.has-header .content { padding-top: 82px; }
   #map { width: 100%; height: 300px; display: block; }
 
-  .content { max-width: 640px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
-  .page-title { font-size: 22px; font-weight: 700; margin: 0 0 4px 0; color: #222; }
-  .page-sub { color: #666; font-size: 14px; margin-bottom: 20px; }
+  .content { max-width: 660px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
+  .page-title { font-family: "Fraunces", serif; font-size: 25px; font-weight: 600; margin: 0 0 5px 0; color: var(--forest); }
+  .page-sub { color: var(--moss); font-size: 14px; margin-bottom: 22px; }
 
   .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 24px; }
-  .stat-card { background: #fff; border-radius: 10px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-  .stat-value { font-size: 20px; font-weight: 700; color: #cc0000; }
-  .stat-label { font-size: 12px; color: #888; margin-top: 2px; }
+  .stat-card { background: var(--white); border: 1px solid var(--line); border-radius: 5px; padding: 14px; }
+  .stat-value { font-family: "Fraunces", serif; font-size: 21px; font-weight: 700; color: var(--brick); }
+  .stat-label { font-size: 12px; color: var(--moss); margin-top: 3px; }
 
-  .section-title { font-size: 15px; font-weight: 600; margin: 24px 0 10px 0; color: #333; }
-  .chart-card { background: #fff; border-radius: 10px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .section-title {
+    font-family: "Fraunces", serif; font-size: 16px; font-weight: 600; color: var(--forest);
+    margin: 30px 0 12px 0; padding-left: 12px; border-left: 3px solid var(--brick);
+  }
+  .chart-card { background: var(--white); border: 1px solid var(--line); border-radius: 5px; padding: 16px; }
 
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eee; }
-  th { color: #888; font-weight: 600; font-size: 12px; }
-  .thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; cursor: pointer; display: block; }
+  th, td { text-align: left; padding: 9px 6px; border-bottom: 1px solid var(--line); }
+  th { color: var(--moss); font-weight: 600; font-size: 12px; }
+  .thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 4px; cursor: pointer; display: block; }
 
   #lightbox {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    display: none; position: fixed; inset: 0; background: rgba(30,49,32,0.9);
     z-index: 3000; align-items: center; justify-content: center; padding: 20px;
   }
-  #lightbox img { max-width: 100%; max-height: 90vh; border-radius: 8px; }
+  #lightbox img { max-width: 100%; max-height: 90vh; border-radius: 6px; }
 
   #loading-screen {
-    position: fixed; inset: 0; background: #fafafa; z-index: 4000;
-    display: flex; align-items: center; justify-content: center; font-size: 14px; color: #888;
+    position: fixed; inset: 0; background: var(--paper); z-index: 4000;
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Fraunces", serif; font-size: 15px; color: var(--forest);
   }
 </style>
 </head>
@@ -114,8 +165,8 @@
 
 <div id="gate-view">
   <div class="card">
-    <div style="font-size:20px; font-weight:700; margin-bottom:4px;">Challenge Saint-Lô Agglo</div>
-    <div style="font-size:13px; color:#888; margin-bottom:20px;">Connectez-vous pour accéder aux parcours</div>
+    <div style="font-family:'Fraunces',serif; font-size:22px; font-weight:600; color:var(--forest); margin-bottom:6px;">Challenge Saint-Lô Agglo</div>
+    <div style="font-size:13px; color:var(--moss); margin-bottom:22px;">Connectez-vous pour retrouver vos parcours</div>
     <input type="text" id="gate-name" placeholder="Prénom (à l'inscription)">
     <input type="email" id="gate-email" placeholder="Adresse email">
     <input type="password" id="gate-password" placeholder="Mot de passe (6 caractères min.)">
@@ -131,7 +182,7 @@
   <div class="content">
     <div id="home-map-wrap" class="chart-card" style="padding:0; overflow:hidden;"><div id="home-map"></div></div>
     <div class="page-title" style="margin-top:20px;">Parcours disponibles</div>
-    <div class="page-sub">Choisissez une trace pour voir la carte, valider votre passage et voter.</div>
+    <div class="page-sub">Choisissez un tracé pour consulter la carte, valider votre passage et donner votre avis.</div>
     <div id="trace-list"></div>
   </div>
 </div>
@@ -186,11 +237,11 @@
       <div style="font-weight:600; font-size:15px; margin-bottom:12px;">Votez !</div>
       <div style="margin-bottom:14px;">
         <label style="font-size:13px; color:#555;">Difficulté : <span id="vote-diff-val">5</span>/10</label>
-        <input type="range" min="1" max="10" value="5" id="vote-diff" style="width:100%; accent-color:#cc0000;">
+        <input type="range" min="1" max="10" value="5" id="vote-diff" style="width:100%; accent-color:#A8402C;">
       </div>
       <div style="margin-bottom:14px;">
         <label style="font-size:13px; color:#555;">Appréciation : <span id="vote-appr-val">5</span>/10</label>
-        <input type="range" min="1" max="10" value="5" id="vote-appr" style="width:100%; accent-color:#cc0000;">
+        <input type="range" min="1" max="10" value="5" id="vote-appr" style="width:100%; accent-color:#A8402C;">
       </div>
       <button class="btn btn-primary" id="submit-vote">Envoyer mon vote</button>
       <div class="msg" id="vote-status"></div>
@@ -274,7 +325,7 @@ function renderHome() {
   const allBounds = [];
   TRACE_LIST.forEach(t => {
     const fullTrace = TRACES[t.id];
-    const poly = L.polygon(fullTrace.coords, { color: '#cc0000', weight: 3, fillColor: '#ff0000', fillOpacity: 0.3 }).addTo(homeMap);
+    const poly = L.polygon(fullTrace.coords, { color: '#A8402C', weight: 3, fillColor: '#C6584B', fillOpacity: 0.3 }).addTo(homeMap);
     t._polygon = poly;
     const popupHtml =
       '<div class="popup-name">' + t.name + '</div>' +
@@ -333,8 +384,8 @@ async function refreshHomeColors() {
     try {
       const snap = await getDoc(doc(db, 'traces', t.id, 'validations', currentUser.uid));
       t._polygon.setStyle(snap.exists()
-        ? { color: '#1a8a3d', fillColor: '#22aa55' }
-        : { color: '#cc0000', fillColor: '#ff0000' });
+        ? { color: '#2E4A31', fillColor: '#5F7A54' }
+        : { color: '#A8402C', fillColor: '#C6584B' });
     } catch (e) { /* reste en rouge si la lecture échoue */ }
   }
 }
@@ -403,7 +454,7 @@ function initOrUpdateMap(trace) {
     }).addTo(map);
   }
   if (track) { map.removeLayer(track); }
-  track = L.polygon(trace.coords, { color: '#cc0000', weight: 3, fillColor: '#ff0000', fillOpacity: 0.35 }).addTo(map);
+  track = L.polygon(trace.coords, { color: '#A8402C', weight: 3, fillColor: '#C6584B', fillOpacity: 0.35 }).addTo(map);
   map.fitBounds(track.getBounds(), { padding: [20, 20] });
 }
 
@@ -440,8 +491,8 @@ function drawChart(trace) {
   for (let i = 1; i < dist.length; i++) path += ' L ' + x(dist[i]) + ' ' + y(eles[i]);
   const area = path + ' L ' + x(maxD) + ' ' + (padT + plotH) + ' L ' + x(0) + ' ' + (padT + plotH) + ' Z';
   svg.innerHTML =
-    '<path d="' + area + '" fill="#ff0000" opacity="0.15"></path>' +
-    '<path d="' + path + '" fill="none" stroke="#cc0000" stroke-width="2"></path>' +
+    '<path d="' + area + '" fill="#C6584B" opacity="0.15"></path>' +
+    '<path d="' + path + '" fill="none" stroke="#A8402C" stroke-width="2"></path>' +
     '<line x1="' + padL + '" y1="' + (padT + plotH) + '" x2="' + (padL + plotW) + '" y2="' + (padT + plotH) + '" stroke="#ccc"></line>' +
     '<text x="4" y="' + (y(maxE) + 4) + '" font-size="10" fill="#888">' + Math.round(maxE) + 'm</text>' +
     '<text x="4" y="' + (y(minE) + 4) + '" font-size="10" fill="#888">' + Math.round(minE) + 'm</text>' +
@@ -516,7 +567,7 @@ onAuthStateChanged(auth, async (user) => {
 /* ---------- COULEUR DU TRACÉ ---------- */
 function setTrackValidated(v) {
   if (!track) return;
-  track.setStyle(v ? { color: '#1a8a3d', fillColor: '#22aa55' } : { color: '#cc0000', fillColor: '#ff0000' });
+  track.setStyle(v ? { color: '#2E4A31', fillColor: '#5F7A54' } : { color: '#A8402C', fillColor: '#C6584B' });
 }
 
 /* ---------- PHOTO ---------- */
@@ -577,7 +628,7 @@ validateBtn.addEventListener('click', async () => {
     setTrackValidated(true);
     const homeTrace = TRACE_LIST.find(t => t.id === currentTraceId);
     if (homeTrace && homeTrace._polygon) {
-      homeTrace._polygon.setStyle({ color: '#1a8a3d', fillColor: '#22aa55' });
+      homeTrace._polygon.setStyle({ color: '#2E4A31', fillColor: '#5F7A54' });
     }
     validateBtn.textContent = 'Parcours validé ✓ (mettre à jour)';
     validateMsg.className = 'msg ok'; validateMsg.textContent = 'Validation enregistrée !';
@@ -613,7 +664,7 @@ function watchTraceData(traceId) {
       const photo = r.photo ? '<img class="thumb" src="' + r.photo + '" data-full="' + r.photo + '">' : '<span style="color:#ccc;">—</span>';
       return '<tr><td>' + photo + '</td><td>' + (r.nom || '—') + '</td><td>' + dateStr + '</td></tr>';
     }).join('');
-  }, (e) => { tbody.innerHTML = '<tr><td colspan="3" style="color:#cc0000;">Erreur : ' + e.code + '</td></tr>'; });
+  }, (e) => { tbody.innerHTML = '<tr><td colspan="3" style="color:#A8402C;">Erreur : ' + e.code + '</td></tr>'; });
 
   unsubVotes = onSnapshot(collection(db, 'traces', traceId, 'votes'), (snap) => {
     let dSum = 0, aSum = 0, n = 0;
