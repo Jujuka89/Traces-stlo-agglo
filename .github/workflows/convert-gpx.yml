@@ -1,0 +1,31 @@
+name: Convertir les GPX en JSON
+
+on:
+  push:
+    paths:
+      - 'gpx-source/**.gpx'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Convertir les fichiers GPX
+        run: python3 gpx_to_json.py gpx-source traces
+
+      - name: Commit et push des fichiers générés
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Génération automatique des traces JSON"
+          file_pattern: 'traces/*.json traces/index.json'
