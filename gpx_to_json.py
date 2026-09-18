@@ -118,6 +118,15 @@ def main():
         print(f"Aucun fichier .gpx trouvé dans {src_dir}")
         sys.exit(1)
 
+    # Nettoyage : on repart d'un dossier de sortie vide pour ne garder
+    # que les traces correspondant aux .gpx actuellement présents.
+    # (index.json est régénéré juste après, donc on ne touche pas
+    # aux fichiers qui ne sont pas de notre ressort si jamais il y en a)
+    for old_json in out_dir.glob("*.json"):
+        if old_json.name != "index.json":
+            old_json.unlink()
+            print(f"🗑️  Supprimé (source .gpx absente) : {old_json.name}")
+
     index = []
     for gpx_path in gpx_files:
         try:
