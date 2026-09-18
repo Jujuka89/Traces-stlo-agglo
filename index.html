@@ -560,6 +560,10 @@ validateBtn.addEventListener('click', async () => {
     if (photoDataUrl) payload.photo = photoDataUrl;
     await setDoc(doc(db, 'traces', currentTraceId, 'validations', currentUser.uid), payload, { merge: true });
     setTrackValidated(true);
+    const homeTrace = TRACE_LIST.find(t => t.id === currentTraceId);
+    if (homeTrace && homeTrace._polygon) {
+      homeTrace._polygon.setStyle({ color: '#1a8a3d', fillColor: '#22aa55' });
+    }
     validateBtn.textContent = 'Parcours validé ✓ (mettre à jour)';
     validateMsg.className = 'msg ok'; validateMsg.textContent = 'Validation enregistrée !';
   } catch (e) {
