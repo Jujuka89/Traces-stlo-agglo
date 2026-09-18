@@ -314,6 +314,18 @@ function renderTraceList() {
   });
 }
 
+let unsubHomeCounts = [];
+
+function watchAllParticipantCounts() {
+  unsubHomeCounts.forEach(u => u());
+  unsubHomeCounts = TRACE_LIST.map(t =>
+    onSnapshot(collection(db, 'traces', t.id, 'validations'), (snap) => {
+      t.participants = snap.size;
+      renderTraceList();
+    }, (e) => { /* ignore les erreurs de lecture ici, la fiche du parcours les affichera */ })
+  );
+}
+
 async function refreshHomeColors() {
   if (!currentUser) return;
   for (const t of TRACE_LIST) {
@@ -486,6 +498,7 @@ onAuthStateChanged(auth, async (user) => {
       if (!tracesLoaded) await loadTraces();
       loadingScreen.style.display = 'none';
       renderHome();
+      watchAllParticipantCounts();
       showHome();
     } catch (e) {
       loadingScreen.textContent = 'Erreur de chargement des parcours : ' + e.message;
@@ -493,6 +506,8 @@ onAuthStateChanged(auth, async (user) => {
   } else {
     if (unsubValidations) unsubValidations();
     if (unsubVotes) unsubVotes();
+    unsubHomeCounts.forEach(u => u());
+    unsubHomeCounts = [];
     loadingScreen.style.display = 'none';
     showGate();
   }
