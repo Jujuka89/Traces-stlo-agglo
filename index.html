@@ -419,7 +419,7 @@ let map, track;
 let startMarker, directionDecorator;
 const startIcon = L.divIcon({
   className: '',
-  html: '<div class="start-marker-inner">🅿️</div>',
+  html: '<div class="start-marker-inner">🚩</div>',
   iconSize: [32, 32],
   iconAnchor: [16, 16]
 });
@@ -738,11 +738,11 @@ function initOrUpdateMap(trace) {
   if (startMarker) { map.removeLayer(startMarker); }
   if (directionDecorator) { map.removeLayer(directionDecorator); }
 
-  track = L.polygon(trace.coords, { color: '#FF5A1F', weight: 3, fillOpacity: 0 }).addTo(map);
+  track = L.polygon(trace.coords, { color: '#1B3A6B', weight: 3, fillOpacity: 0 }).addTo(map);
 
   startMarker = L.marker(trace.coords[0], { icon: startIcon })
     .addTo(map)
-    .bindPopup('<b>Départ / Parking</b>');
+    .bindPopup('<b>Départ</b>');
 
   directionDecorator = L.polylineDecorator(track, {
     patterns: [{
@@ -918,8 +918,8 @@ document.getElementById('new-traces-close').addEventListener('click', () => {
 
 /* ---------- COULEUR DU TRACÉ ---------- */
 function setTrackValidated(v) {
-  if (!track) return;
-  track.setStyle(v ? { color: '#3DDC84', fillOpacity: 0 } : { color: '#FF5A1F', fillOpacity: 0 });
+  // Le tracé garde toujours la même couleur (bleu foncé) sur la fiche détaillée,
+  // quel que soit le statut de validation.
 }
 
 /* ---------- PHOTO ---------- */
