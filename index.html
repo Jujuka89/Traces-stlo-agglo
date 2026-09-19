@@ -141,6 +141,14 @@
 
   #parcours-view { display: none; }
   #parcours-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
+
+  #gallery-view { display: none; }
+  #gallery-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
+  .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+  .gallery-item { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .gallery-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; cursor: pointer; display: block; }
+  .gallery-caption { padding: 8px; font-size: 12px; color: var(--text); line-height: 1.35; }
+  .gallery-caption .gallery-participant { color: var(--text-dim); }
   .trace-card .leaderboard-rank { margin-right: 6px; }
   .leaderboard-row {
     display: flex; align-items: center; gap: 14px; background: var(--surface);
@@ -207,6 +215,7 @@
     <a href="#" id="nav-home-link">Accueil</a>
     <a href="#" id="nav-parcours-link">Parcours</a>
     <a href="#" id="nav-leaderboard-link">Classement</a>
+    <a href="#" id="nav-gallery-link">Galerie</a>
   </nav>
 </header>
 
@@ -258,6 +267,14 @@
     <div class="page-title" style="margin-top:20px;">Classement</div>
     <div class="page-sub">Les participants ayant validé le plus de parcours différents.</div>
     <div id="leaderboard-list"><div style="color:var(--moss);">Chargement…</div></div>
+  </div>
+</div>
+
+<div id="gallery-view">
+  <div class="content">
+    <div class="page-title" style="margin-top:20px;">Galerie</div>
+    <div class="page-sub">Les photos partagées par les participants, tous parcours confondus.</div>
+    <div id="gallery-grid" class="gallery-grid"><div style="color:var(--text-dim);">Chargement…</div></div>
   </div>
 </div>
 
@@ -397,6 +414,7 @@ const homeView = document.getElementById('home-view');
 const appView = document.getElementById('app-view');
 const leaderboardView = document.getElementById('leaderboard-view');
 const parcoursView = document.getElementById('parcours-view');
+const galleryView = document.getElementById('gallery-view');
 const loadingScreen = document.getElementById('loading-screen');
 
 let unsubLeaderboard = null;
@@ -435,6 +453,46 @@ function renderLeaderboard(ranking) {
       '<div class="leaderboard-count">' + r.count + ' ' + label + '</div>' +
     '</div>';
   }).join('');
+}
+
+let unsubGallery = null;
+
+function watchGallery() {
+  if (unsubGallery) unsubGallery();
+  unsubGallery = onSnapshot(collectionGroup(db, 'validations'), (snap) => {
+    const items = [];
+    snap.forEach(docSnap => {
+      const data = docSnap.data();
+      if (!data.photo) return;
+      const traceId = docSnap.ref.parent.parent.id;
+      const traceName = (TRACES[traceId] && TRACES[traceId].name) || traceId;
+      items.push({
+        photo: data.photo,
+        nom: data.nom || 'Anonyme',
+        traceName: traceName,
+        seconds: (data.date && data.date.seconds) ? data.date.seconds : 0
+      });
+    });
+    items.sort((a, b) => b.seconds - a.seconds);
+    renderGallery(items);
+  }, (e) => {
+    document.getElementById('gallery-grid').innerHTML =
+      '<div style="color:var(--accent);">Erreur de chargement de la galerie : ' + e.code + '</div>';
+  });
+}
+
+function renderGallery(items) {
+  const grid = document.getElementById('gallery-grid');
+  if (!items.length) {
+    grid.innerHTML = '<div style="color:var(--text-dim);">Aucune photo pour le moment.</div>';
+    return;
+  }
+  grid.innerHTML = items.map(it =>
+    '<div class="gallery-item">' +
+      '<img class="thumb gallery-thumb" src="' + it.photo + '" data-full="' + it.photo + '">' +
+      '<div class="gallery-caption">' + it.traceName + '<br><span class="gallery-participant">' + it.nom + '</span></div>' +
+    '</div>'
+  ).join('');
 }
 
 let homeMap = null;
@@ -580,10 +638,10 @@ document.addEventListener('click', (e) => {
   if (e.target.classList.contains('popup-link')) openTrace(e.target.dataset.trace);
 });
 
-function showGate() { siteHeader.style.display = 'none'; siteFooter.style.display = 'none'; gateView.style.display = 'flex'; homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; }
+function showGate() { siteHeader.style.display = 'none'; siteFooter.style.display = 'none'; gateView.style.display = 'flex'; homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; }
 function showHome() {
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
-  appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none';
+  appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none';
   homeView.classList.add('has-header'); homeView.style.display = 'block';
   setTimeout(() => {
     if (homeMap) {
@@ -599,7 +657,7 @@ function showHome() {
 }
 function showApp() {
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
-  homeView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none';
+  homeView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none';
   appView.classList.add('has-header'); appView.style.display = 'block';
   setTimeout(() => {
     if (map) {
@@ -610,19 +668,25 @@ function showApp() {
 }
 function showLeaderboard() {
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
-  homeView.style.display = 'none'; appView.style.display = 'none'; parcoursView.style.display = 'none';
+  homeView.style.display = 'none'; appView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none';
   leaderboardView.classList.add('has-header'); leaderboardView.style.display = 'block';
 }
 function showParcours() {
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
-  homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none';
+  homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; galleryView.style.display = 'none';
   parcoursView.classList.add('has-header'); parcoursView.style.display = 'block';
   renderParcoursRanking();
+}
+function showGallery() {
+  gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
+  homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none';
+  galleryView.classList.add('has-header'); galleryView.style.display = 'block';
 }
 
 document.getElementById('nav-home-link').addEventListener('click', (e) => { e.preventDefault(); showHome(); });
 document.getElementById('nav-parcours-link').addEventListener('click', (e) => { e.preventDefault(); showParcours(); });
 document.getElementById('nav-leaderboard-link').addEventListener('click', (e) => { e.preventDefault(); showLeaderboard(); });
+document.getElementById('nav-gallery-link').addEventListener('click', (e) => { e.preventDefault(); showGallery(); });
 document.getElementById('back-to-home').addEventListener('click', showHome);
 
 /* ---------- OUVERTURE D'UN PARCOURS ---------- */
@@ -751,6 +815,7 @@ onAuthStateChanged(auth, async (user) => {
       watchAllParticipantCounts();
       watchAllRatings();
       watchLeaderboard();
+      watchGallery();
       showHome();
       checkForNewTraces();
     } catch (e) {
@@ -760,6 +825,7 @@ onAuthStateChanged(auth, async (user) => {
     if (unsubValidations) unsubValidations();
     if (unsubVotes) unsubVotes();
     if (unsubLeaderboard) unsubLeaderboard();
+    if (unsubGallery) unsubGallery();
     if (unsubRatings) unsubRatings();
     unsubHomeCounts.forEach(u => u());
     unsubHomeCounts = [];
