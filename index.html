@@ -303,14 +303,15 @@
 
     <div class="section-title">Valider mon parcours</div>
     <div class="chart-card">
-      <label style="font-size:13px; color:var(--text-dim); display:block; margin-bottom:8px;">Votre trace GPX (optionnel — vérifie et valide automatiquement)</label>
+      <label style="font-size:13px; color:var(--text-dim); display:block; margin-bottom:8px;">Votre trace GPX (reconnaissance auto. à partir de 95% du circuit)</label>
       <input type="file" accept=".gpx" id="gpx-input" style="margin-bottom:8px;">
       <div class="msg" id="gpx-check-msg" style="margin-bottom:12px;"></div>
 
-      <label style="font-size:13px; color:var(--text-dim); display:block; margin-bottom:8px;">Photo du parcours (optionnelle)</label>
+      <label style="font-size:13px; color:var(--text-dim); display:block; margin-bottom:8px;">Photo du parcours</label>
       <input type="file" accept="image/*" id="photo-input" style="margin-bottom:12px;">
       <img id="photo-preview" style="display:none; max-width:100%; border-radius:8px; margin-bottom:12px;">
-      <button class="btn btn-green" id="validate-btn">J'ai validé mon parcours ✓</button>
+      <div class="msg" id="validate-lock-msg" style="color:var(--text-dim); margin-bottom:10px;">🔒 Importez une photo ou une trace GPX reconnue à 95% pour débloquer la validation.</div>
+      <button class="btn btn-green" id="validate-btn" disabled>J'ai validé mon parcours ✓</button>
       <div class="msg" id="validate-msg"></div>
     </div>
 
@@ -724,6 +725,7 @@ function openTrace(id) {
   document.getElementById('app-trace-sub').innerHTML =
     (trace.subtitle || '') + ' <span id="map-ratings">⭐ -- · 💪 --</span>';
 
+  resetValidationForm();
   initOrUpdateMap(trace);
   fillDetail(trace);
   drawChart(trace);
@@ -931,6 +933,9 @@ function setTrackValidated(v) {
 
 /* ---------- PHOTO ---------- */
 let photoDataUrl = null;
+let gpxVerified = false;
+let lastGpxDurationSeconds = null;
+
 document.getElementById('photo-input').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -948,11 +953,30 @@ document.getElementById('photo-input').addEventListener('change', (e) => {
       photoDataUrl = canvas.toDataURL('image/jpeg', 0.65);
       const prev = document.getElementById('photo-preview');
       prev.src = photoDataUrl; prev.style.display = 'block';
+      updateValidateButtonState();
     };
     img.src = ev.target.result;
   };
   reader.readAsDataURL(file);
 });
+
+function resetValidationForm() {
+  photoDataUrl = null;
+  gpxVerified = false;
+  lastGpxDurationSeconds = null;
+  document.getElementById('photo-input').value = '';
+  document.getElementById('photo-preview').style.display = 'none';
+  document.getElementById('gpx-input').value = '';
+  document.getElementById('gpx-check-msg').textContent = '';
+}
+
+function updateValidateButtonState() {
+  if (validateBtn.textContent.indexOf('Parcours validé') === 0) return; // déjà validé, on ne touche à rien
+  const unlocked = !!photoDataUrl || gpxVerified;
+  validateBtn.disabled = !unlocked;
+  const lockMsg = document.getElementById('validate-lock-msg');
+  if (lockMsg) lockMsg.style.display = unlocked ? 'none' : 'block';
+}
 
 /* ---------- VALIDATION ---------- */
 const validateMsg = document.getElementById('validate-msg');
@@ -978,14 +1002,15 @@ async function loadMyValidation(traceId) {
       setTrackValidated(true);
       validateBtn.textContent = 'Parcours validé ✓';
       validateBtn.disabled = true;
+      document.getElementById('validate-lock-msg').style.display = 'none';
       validateMsg.className = 'msg ok';
       validateMsg.textContent = 'Votre tracé apparaît en vert.';
       setVoteLocked(false);
     } else {
       setTrackValidated(false);
       validateBtn.textContent = "J'ai validé mon parcours ✓";
-      validateBtn.disabled = false;
       validateMsg.textContent = '';
+      updateValidateButtonState();
       setVoteLocked(true);
     }
   } catch (e) {
@@ -1017,11 +1042,11 @@ async function performValidation(source, durationSeconds) {
   }
 }
 
-validateBtn.addEventListener('click', () => performValidation('manual'));
+validateBtn.addEventListener('click', () => performValidation(gpxVerified ? 'gpx' : 'manual', lastGpxDurationSeconds));
 
 /* ---------- VÉRIFICATION AUTOMATIQUE PAR TRACE GPX ---------- */
 const GPX_MATCH_TOLERANCE_M = 75;   // distance max pour considérer un point "retrouvé"
-const GPX_MATCH_THRESHOLD_PCT = 80; // % du circuit à retrouver pour valider automatiquement
+const GPX_MATCH_THRESHOLD_PCT = 95; // % du circuit à retrouver pour débloquer la validation
 
 function haversineMeters(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -1095,27 +1120,32 @@ document.getElementById('gpx-input').addEventListener('change', (e) => {
     const parsed = parseGpxData(ev.target.result);
     if (!parsed) {
       msg.className = 'msg err';
-      msg.textContent = 'Fichier GPX illisible ou vide. Vous pouvez valider manuellement ci-dessous.';
+      msg.textContent = 'Fichier GPX illisible ou vide.';
+      gpxVerified = false;
+      updateValidateButtonState();
       return;
     }
     const reference = TRACES[currentTraceId].coords;
     const pct = gpxMatchPercentage(reference, parsed.coords, GPX_MATCH_TOLERANCE_M);
     const durationText = parsed.durationSeconds ? ' · Temps : ' + formatDuration(parsed.durationSeconds) : '';
+    lastGpxDurationSeconds = parsed.durationSeconds;
 
     if (pct >= GPX_MATCH_THRESHOLD_PCT) {
       msg.className = 'msg ok';
-      msg.textContent = 'Trace reconnue à ' + pct.toFixed(0) + '% du circuit ✓' + durationText;
-      if (!validateBtn.disabled) {
-        performValidation('gpx', parsed.durationSeconds);
-      }
+      msg.textContent = 'Trace reconnue à ' + pct.toFixed(0) + '% du circuit ✓' + durationText + ' — vous pouvez valider.';
+      gpxVerified = true;
     } else {
       msg.className = 'msg err';
       msg.textContent = 'Seulement ' + pct.toFixed(0) + '% du circuit reconnu dans votre trace (minimum ' +
-        GPX_MATCH_THRESHOLD_PCT + '% requis)' + durationText + '. Vous pouvez valider manuellement ci-dessous si vous êtes sûr(e) d\'avoir fait le parcours.';
+        GPX_MATCH_THRESHOLD_PCT + '% requis)' + durationText + '. Ajoutez une photo pour valider malgré tout.';
+      gpxVerified = false;
     }
+    updateValidateButtonState();
   };
   reader.onerror = () => {
     msg.className = 'msg err'; msg.textContent = 'Impossible de lire ce fichier.';
+    gpxVerified = false;
+    updateValidateButtonState();
   };
   reader.readAsText(file);
 });
