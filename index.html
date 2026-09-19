@@ -117,6 +117,11 @@
   .trace-card-dist { font-family: "Space Grotesk", sans-serif; font-size: 15px; font-weight: 700; color: var(--accent); white-space: nowrap; margin-left: 8px; flex-shrink: 0; }
   .leaflet-popup-content-wrapper { background: var(--surface); color: var(--text); border-radius: 10px; }
   .leaflet-popup-tip { background: var(--surface); }
+  .start-marker-inner {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--accent);
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+    border: 2px solid #14100D; box-shadow: 0 2px 8px rgba(0,0,0,0.45);
+  }
   .leaflet-popup-content { font-size: 13px; font-family: "Inter", sans-serif; }
   .popup-name { font-family: "Space Grotesk", sans-serif; font-weight: 600; font-size: 14px; margin-bottom: 2px; }
   .popup-dist { color: var(--accent); font-weight: 600; margin-bottom: 8px; }
@@ -353,6 +358,7 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -410,6 +416,13 @@ async function loadTraces() {
 let currentUser = null;
 let currentTraceId = null;
 let map, track;
+let startMarker, directionDecorator;
+const startIcon = L.divIcon({
+  className: '',
+  html: '<div class="start-marker-inner">🅿️</div>',
+  iconSize: [32, 32],
+  iconAnchor: [16, 16]
+});
 
 const siteHeader = document.getElementById('site-header');
 const siteFooter = document.getElementById('site-footer');
@@ -722,7 +735,27 @@ function initOrUpdateMap(trace) {
     }).addTo(map);
   }
   if (track) { map.removeLayer(track); }
+  if (startMarker) { map.removeLayer(startMarker); }
+  if (directionDecorator) { map.removeLayer(directionDecorator); }
+
   track = L.polygon(trace.coords, { color: '#FF5A1F', weight: 3, fillOpacity: 0 }).addTo(map);
+
+  startMarker = L.marker(trace.coords[0], { icon: startIcon })
+    .addTo(map)
+    .bindPopup('<b>Départ / Parking</b>');
+
+  directionDecorator = L.polylineDecorator(track, {
+    patterns: [{
+      offset: 25,
+      repeat: 120,
+      symbol: L.Symbol.arrowHead({
+        pixelSize: 11,
+        polygon: true,
+        pathOptions: { color: '#FFFFFF', fillColor: '#FFFFFF', fillOpacity: 0.9, weight: 0 }
+      })
+    }]
+  }).addTo(map);
+
   map.fitBounds(track.getBounds(), { padding: [20, 20] });
 }
 
