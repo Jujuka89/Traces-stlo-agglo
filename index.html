@@ -53,9 +53,9 @@
     position: fixed; bottom: 0; left: 0; right: 0;
     background: rgba(16,17,20,0.85); backdrop-filter: blur(10px);
     border-top: 1px solid var(--line);
-    align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap;
-    padding: 10px 18px; box-sizing: border-box; z-index: 2200;
-    font-size: 12px;
+    align-items: center; justify-content: center; gap: 16px;
+    padding: 13px 18px; box-sizing: border-box; z-index: 2200;
+    font-size: 13px;
   }
   #site-footer a { color: var(--text-dim); text-decoration: none; font-weight: 500; cursor: pointer; transition: color 0.15s ease; }
   #site-footer a:hover { color: var(--accent); }
@@ -226,8 +226,6 @@
 
 <footer id="site-footer">
   <span class="nav-user" id="header-user-label"></span>
-  <span class="nav-user">👀 <span id="footer-visits">--</span> visites</span>
-  <span class="nav-user">🚵 <span id="footer-participants">--</span> participants</span>
   <a href="#" id="nav-logout-link">Déconnexion</a>
 </footer>
 
@@ -305,7 +303,11 @@
 
     <div class="section-title">Valider mon parcours</div>
     <div class="chart-card">
-      <label style="font-size:13px; color:#555; display:block; margin-bottom:8px;">Photo du parcours (optionnelle)</label>
+      <label style="font-size:13px; color:var(--text-dim); display:block; margin-bottom:8px;">Votre trace GPX (optionnel — vérifie et valide automatiquement)</label>
+      <input type="file" accept=".gpx" id="gpx-input" style="margin-bottom:8px;">
+      <div class="msg" id="gpx-check-msg" style="margin-bottom:12px;"></div>
+
+      <label style="font-size:13px; color:var(--text-dim); display:block; margin-bottom:8px;">Photo du parcours (optionnelle)</label>
       <input type="file" accept="image/*" id="photo-input" style="margin-bottom:12px;">
       <img id="photo-preview" style="display:none; max-width:100%; border-radius:8px; margin-bottom:12px;">
       <button class="btn btn-green" id="validate-btn">J'ai validé mon parcours ✓</button>
@@ -369,7 +371,7 @@ import {
   signOut, onAuthStateChanged, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, doc, setDoc, getDoc, collection, collectionGroup, onSnapshot, serverTimestamp, increment
+  getFirestore, doc, setDoc, getDoc, collection, collectionGroup, onSnapshot, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -451,8 +453,6 @@ function watchLeaderboard() {
       if (data.nom) counts[uid].nom = data.nom;
     });
     renderLeaderboard(Object.values(counts).sort((a, b) => b.count - a.count));
-    const footerParticipants = document.getElementById('footer-participants');
-    if (footerParticipants) footerParticipants.textContent = Object.keys(counts).length;
   }, (e) => {
     document.getElementById('leaderboard-list').innerHTML =
       '<div style="color:var(--brick);">Erreur de chargement du classement : ' + e.code + '</div>';
@@ -517,23 +517,7 @@ function renderGallery(items) {
   ).join('');
 }
 
-/* ---------- COMPTEUR DE VISITES ---------- */
-let unsubSiteStats = null;
-
-async function bumpVisitCounter() {
-  try {
-    await setDoc(doc(db, 'stats', 'site'), { visits: increment(1) }, { merge: true });
-  } catch (e) { /* silencieux : le compteur ne bougera juste pas cette fois */ }
-}
-
-function watchSiteStats() {
-  if (unsubSiteStats) unsubSiteStats();
-  unsubSiteStats = onSnapshot(doc(db, 'stats', 'site'), (snap) => {
-    const visits = (snap.exists() && typeof snap.data().visits === 'number') ? snap.data().visits : 0;
-    const el = document.getElementById('footer-visits');
-    if (el) el.textContent = visits;
-  }, (e) => { /* silencieux */ });
-}
+/* ---------- COMPTEUR DE VISITES (retiré, à refaire plus tard) ---------- */
 
 let homeMap = null;
 
@@ -877,8 +861,6 @@ onAuthStateChanged(auth, async (user) => {
       watchAllRatings();
       watchLeaderboard();
       watchGallery();
-      watchSiteStats();
-      bumpVisitCounter();
       showHome();
       checkForNewTraces();
     } catch (e) {
@@ -890,7 +872,6 @@ onAuthStateChanged(auth, async (user) => {
     if (unsubLeaderboard) unsubLeaderboard();
     if (unsubGallery) unsubGallery();
     if (unsubRatings) unsubRatings();
-    if (unsubSiteStats) unsubSiteStats();
     unsubHomeCounts.forEach(u => u());
     unsubHomeCounts = [];
     loadingScreen.style.display = 'none';
@@ -1012,12 +993,13 @@ async function loadMyValidation(traceId) {
   }
 }
 
-validateBtn.addEventListener('click', async () => {
+async function performValidation(source) {
   if (!currentUser || !currentTraceId) return;
   validateMsg.className = 'msg'; validateMsg.textContent = 'Enregistrement…';
   try {
     const payload = { nom: currentUser.displayName || currentUser.email, date: serverTimestamp() };
     if (photoDataUrl) payload.photo = photoDataUrl;
+    if (source === 'gpx') payload.viaGpx = true;
     await setDoc(doc(db, 'traces', currentTraceId, 'validations', currentUser.uid), payload, { merge: true });
     setTrackValidated(true);
     const homeTrace = TRACE_LIST.find(t => t.id === currentTraceId);
@@ -1026,11 +1008,91 @@ validateBtn.addEventListener('click', async () => {
     }
     validateBtn.textContent = 'Parcours validé ✓';
     validateBtn.disabled = true;
-    validateMsg.className = 'msg ok'; validateMsg.textContent = 'Validation enregistrée !';
+    validateMsg.className = 'msg ok';
+    validateMsg.textContent = source === 'gpx' ? 'Validé automatiquement via votre trace GPX !' : 'Validation enregistrée !';
     setVoteLocked(false);
   } catch (e) {
     validateMsg.className = 'msg err'; validateMsg.textContent = 'Erreur : ' + e.code;
   }
+}
+
+validateBtn.addEventListener('click', () => performValidation('manual'));
+
+/* ---------- VÉRIFICATION AUTOMATIQUE PAR TRACE GPX ---------- */
+const GPX_MATCH_TOLERANCE_M = 75;   // distance max pour considérer un point "retrouvé"
+const GPX_MATCH_THRESHOLD_PCT = 80; // % du circuit à retrouver pour valider automatiquement
+
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const p1 = lat1 * Math.PI / 180, p2 = lat2 * Math.PI / 180;
+  const dPhi = (lat2 - lat1) * Math.PI / 180;
+  const dLambda = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dPhi / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dLambda / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function gpxMatchPercentage(referenceCoords, uploadedCoords, toleranceMeters) {
+  if (!uploadedCoords.length) return 0;
+  // On échantillonne le tracé de référence pour limiter le nombre de comparaisons
+  const step = Math.max(1, Math.floor(referenceCoords.length / 300));
+  let covered = 0, total = 0;
+  for (let i = 0; i < referenceCoords.length; i += step) {
+    total++;
+    const [rlat, rlon] = referenceCoords[i];
+    let minDist = Infinity;
+    for (let j = 0; j < uploadedCoords.length; j++) {
+      const d = haversineMeters(rlat, rlon, uploadedCoords[j][0], uploadedCoords[j][1]);
+      if (d < minDist) minDist = d;
+      if (minDist <= toleranceMeters) break;
+    }
+    if (minDist <= toleranceMeters) covered++;
+  }
+  return total ? (covered / total) * 100 : 0;
+}
+
+function parseGpxCoords(gpxText) {
+  const xml = new DOMParser().parseFromString(gpxText, 'application/xml');
+  if (xml.getElementsByTagName('parsererror').length) return null;
+  const pts = Array.from(xml.getElementsByTagName('trkpt'));
+  if (!pts.length) return null;
+  return pts.map(pt => [parseFloat(pt.getAttribute('lat')), parseFloat(pt.getAttribute('lon'))]);
+}
+
+document.getElementById('gpx-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  const msg = document.getElementById('gpx-check-msg');
+  if (!file) return;
+  if (!currentTraceId || !TRACES[currentTraceId]) return;
+
+  msg.className = 'msg'; msg.textContent = 'Analyse de votre trace…';
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const uploaded = parseGpxCoords(ev.target.result);
+    if (!uploaded) {
+      msg.className = 'msg err';
+      msg.textContent = 'Fichier GPX illisible ou vide. Vous pouvez valider manuellement ci-dessous.';
+      return;
+    }
+    const reference = TRACES[currentTraceId].coords;
+    const pct = gpxMatchPercentage(reference, uploaded, GPX_MATCH_TOLERANCE_M);
+
+    if (pct >= GPX_MATCH_THRESHOLD_PCT) {
+      msg.className = 'msg ok';
+      msg.textContent = 'Trace reconnue à ' + pct.toFixed(0) + '% du circuit ✓';
+      if (!validateBtn.disabled) {
+        performValidation('gpx');
+      }
+    } else {
+      msg.className = 'msg err';
+      msg.textContent = 'Seulement ' + pct.toFixed(0) + '% du circuit reconnu dans votre trace (minimum ' +
+        GPX_MATCH_THRESHOLD_PCT + '% requis). Vous pouvez valider manuellement ci-dessous si vous êtes sûr(e) d\'avoir fait le parcours.';
+    }
+  };
+  reader.onerror = () => {
+    msg.className = 'msg err'; msg.textContent = 'Impossible de lire ce fichier.';
+  };
+  reader.readAsText(file);
 });
 
 /* ---------- TABLEAU + VOTES ---------- */
