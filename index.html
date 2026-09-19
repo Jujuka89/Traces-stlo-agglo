@@ -1127,13 +1127,18 @@ document.getElementById('gpx-input').addEventListener('change', (e) => {
     }
     const reference = TRACES[currentTraceId].coords;
     const pct = gpxMatchPercentage(reference, parsed.coords, GPX_MATCH_TOLERANCE_M);
-    const durationText = parsed.durationSeconds ? ' · Temps : ' + formatDuration(parsed.durationSeconds) : '';
+    const hasDuration = !!parsed.durationSeconds;
+    const durationText = hasDuration ? ' · Temps : ' + formatDuration(parsed.durationSeconds) : '';
     lastGpxDurationSeconds = parsed.durationSeconds;
 
-    if (pct >= GPX_MATCH_THRESHOLD_PCT) {
+    if (pct >= GPX_MATCH_THRESHOLD_PCT && hasDuration) {
       msg.className = 'msg ok';
       msg.textContent = 'Trace reconnue à ' + pct.toFixed(0) + '% du circuit ✓' + durationText + ' — vous pouvez valider.';
       gpxVerified = true;
+    } else if (pct >= GPX_MATCH_THRESHOLD_PCT && !hasDuration) {
+      msg.className = 'msg err';
+      msg.textContent = 'Cette trace ne contient pas d\'horodatage : ce n\'est pas un enregistrement de votre sortie (probablement le fichier du circuit lui-même). Utilisez l\'export GPX de votre montre/appli GPS, ou ajoutez une photo.';
+      gpxVerified = false;
     } else {
       msg.className = 'msg err';
       msg.textContent = 'Seulement ' + pct.toFixed(0) + '% du circuit reconnu dans votre trace (minimum ' +
