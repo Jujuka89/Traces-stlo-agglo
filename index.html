@@ -100,8 +100,8 @@
     margin-bottom: 6px;
   }
   .trace-card {
-    background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 12px;
-    display: flex; justify-content: space-between; align-items: center;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
     cursor: pointer; transition: border-color 0.15s ease, transform 0.1s ease, background 0.15s ease;
   }
   .trace-card:hover { transform: translateY(-1px); }
@@ -110,9 +110,11 @@
   .trace-card.is-validated:hover { border-color: #3DDC84; }
   .trace-card.is-pending { border-color: #FF5A1F; background: linear-gradient(135deg, rgba(255,90,31,0.10), var(--surface)); }
   .trace-card.is-pending:hover { border-color: #FF5A1F; }
-  .trace-card-name { font-family: "Space Grotesk", sans-serif; font-size: 17px; font-weight: 600; color: var(--text); }
+  .trace-card-info { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .trace-card-name { font-family: "Space Grotesk", sans-serif; font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; }
+  .trace-card-meta { font-size: 12px; color: var(--text-dim); }
   .trace-card-sub { font-size: 13px; color: var(--text-dim); margin-top: 3px; }
-  .trace-card-dist { font-family: "Space Grotesk", sans-serif; font-size: 16px; font-weight: 700; color: var(--accent); white-space: nowrap; margin-left: 12px; }
+  .trace-card-dist { font-family: "Space Grotesk", sans-serif; font-size: 15px; font-weight: 700; color: var(--accent); white-space: nowrap; margin-left: 8px; flex-shrink: 0; }
   .leaflet-popup-content-wrapper { background: var(--surface); color: var(--text); border-radius: 10px; }
   .leaflet-popup-tip { background: var(--surface); }
   .leaflet-popup-content { font-size: 13px; font-family: "Inter", sans-serif; }
@@ -459,22 +461,26 @@ function renderHome() {
   renderTraceList();
 }
 
+function traceCardBody(t) {
+  const ratingLabel = (t.avgAppreciation != null) ? '⭐ ' + Math.round(t.avgAppreciation) : '⭐ --';
+  const metaParts = [];
+  if (t.subtitle) metaParts.push(t.subtitle);
+  metaParts.push(ratingLabel);
+  metaParts.push('👥 ' + t.participants);
+  return '<div class="trace-card-info">' +
+      '<span class="trace-card-name">' + t.name + '</span>' +
+      '<span class="trace-card-meta">' + metaParts.join(' · ') + '</span>' +
+    '</div>' +
+    '<div class="trace-card-dist">' + t.distance_km + ' km</div>';
+}
+
 function renderTraceList() {
   const list = document.getElementById('trace-list');
   list.innerHTML = '';
   TRACE_LIST.forEach(t => {
     const card = document.createElement('div');
     card.className = 'trace-card ' + (t.validated ? 'is-validated' : 'is-pending');
-    const ratingLabel = (t.avgAppreciation != null) ? '⭐ ' + Math.round(t.avgAppreciation) : '⭐ --';
-    card.innerHTML =
-      '<div style="flex:1;">' +
-        '<div class="trace-card-name">' + t.name + '</div>' +
-        '<div class="trace-card-sub">' + (t.subtitle || '') + '</div>' +
-        '<div class="trace-card-sub" style="margin-top:6px;">' +
-          ratingLabel + ' · 👥 ' + t.participants + ' participant' + (t.participants > 1 ? 's' : '') +
-        '</div>' +
-      '</div>' +
-      '<div class="trace-card-dist">' + t.distance_km + ' km</div>';
+    card.innerHTML = traceCardBody(t);
     card.addEventListener('click', () => openTrace(t.id));
     list.appendChild(card);
   });
@@ -493,17 +499,7 @@ function renderParcoursRanking() {
   ranked.forEach((t, i) => {
     const card = document.createElement('div');
     card.className = 'trace-card ' + (t.validated ? 'is-validated' : 'is-pending');
-    const ratingLabel = (t.avgAppreciation != null) ? '⭐ ' + Math.round(t.avgAppreciation) : '⭐ --';
-    card.innerHTML =
-      '<div class="leaderboard-rank">' + (i + 1) + '</div>' +
-      '<div style="flex:1;">' +
-        '<div class="trace-card-name">' + t.name + '</div>' +
-        '<div class="trace-card-sub">' + (t.subtitle || '') + '</div>' +
-        '<div class="trace-card-sub" style="margin-top:6px;">' +
-          ratingLabel + ' · 👥 ' + t.participants + ' participant' + (t.participants > 1 ? 's' : '') +
-        '</div>' +
-      '</div>' +
-      '<div class="trace-card-dist">' + t.distance_km + ' km</div>';
+    card.innerHTML = '<div class="leaderboard-rank">' + (i + 1) + '</div>' + traceCardBody(t);
     card.addEventListener('click', () => openTrace(t.id));
     list.appendChild(card);
   });
