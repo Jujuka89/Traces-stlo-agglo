@@ -136,6 +136,10 @@
 
   #leaderboard-view { display: none; }
   #leaderboard-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
+
+  #parcours-view { display: none; }
+  #parcours-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
+  .trace-card .leaderboard-rank { margin-right: 6px; }
   .leaderboard-row {
     display: flex; align-items: center; gap: 14px; background: var(--surface);
     border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px;
@@ -199,6 +203,7 @@
   <div class="site-logo"><span class="icon">🚵</span> Challenge VTT Saint-Lô Agglo</div>
   <nav class="nav-menu">
     <a href="#" id="nav-home-link">Accueil</a>
+    <a href="#" id="nav-parcours-link">Parcours</a>
     <a href="#" id="nav-leaderboard-link">Classement</a>
   </nav>
 </header>
@@ -235,6 +240,14 @@
     <div class="page-title" style="margin-top:20px;">Parcours disponibles</div>
     <div class="page-sub">Choisissez un tracé pour consulter la carte, valider votre passage et donner votre avis.</div>
     <div id="trace-list"></div>
+  </div>
+</div>
+
+<div id="parcours-view">
+  <div class="content">
+    <div class="page-title" style="margin-top:20px;">Parcours</div>
+    <div class="page-sub">Classés du mieux noté au moins bien noté.</div>
+    <div id="parcours-list"></div>
   </div>
 </div>
 
@@ -372,6 +385,7 @@ const gateView = document.getElementById('gate-view');
 const homeView = document.getElementById('home-view');
 const appView = document.getElementById('app-view');
 const leaderboardView = document.getElementById('leaderboard-view');
+const parcoursView = document.getElementById('parcours-view');
 const loadingScreen = document.getElementById('loading-screen');
 
 let unsubLeaderboard = null;
@@ -464,6 +478,35 @@ function renderTraceList() {
     card.addEventListener('click', () => openTrace(t.id));
     list.appendChild(card);
   });
+  renderParcoursRanking();
+}
+
+function renderParcoursRanking() {
+  const list = document.getElementById('parcours-list');
+  if (!list) return;
+  const ranked = [...TRACE_LIST].sort((a, b) => {
+    const av = (a.avgAppreciation != null) ? a.avgAppreciation : -1;
+    const bv = (b.avgAppreciation != null) ? b.avgAppreciation : -1;
+    return bv - av;
+  });
+  list.innerHTML = '';
+  ranked.forEach((t, i) => {
+    const card = document.createElement('div');
+    card.className = 'trace-card ' + (t.validated ? 'is-validated' : 'is-pending');
+    const ratingLabel = (t.avgAppreciation != null) ? '⭐ ' + Math.round(t.avgAppreciation) : '⭐ --';
+    card.innerHTML =
+      '<div class="leaderboard-rank">' + (i + 1) + '</div>' +
+      '<div style="flex:1;">' +
+        '<div class="trace-card-name">' + t.name + '</div>' +
+        '<div class="trace-card-sub">' + (t.subtitle || '') + '</div>' +
+        '<div class="trace-card-sub" style="margin-top:6px;">' +
+          ratingLabel + ' · 👥 ' + t.participants + ' participant' + (t.participants > 1 ? 's' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="trace-card-dist">' + t.distance_km + ' km</div>';
+    card.addEventListener('click', () => openTrace(t.id));
+    list.appendChild(card);
+  });
 }
 
 let unsubHomeCounts = [];
@@ -524,10 +567,10 @@ document.addEventListener('click', (e) => {
   if (e.target.classList.contains('popup-link')) openTrace(e.target.dataset.trace);
 });
 
-function showGate() { siteHeader.style.display = 'none'; siteFooter.style.display = 'none'; gateView.style.display = 'flex'; homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; }
+function showGate() { siteHeader.style.display = 'none'; siteFooter.style.display = 'none'; gateView.style.display = 'flex'; homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; }
 function showHome() {
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
-  appView.style.display = 'none'; leaderboardView.style.display = 'none';
+  appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none';
   homeView.classList.add('has-header'); homeView.style.display = 'block';
   setTimeout(() => {
     if (homeMap) {
@@ -543,7 +586,7 @@ function showHome() {
 }
 function showApp() {
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
-  homeView.style.display = 'none'; leaderboardView.style.display = 'none';
+  homeView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none';
   appView.classList.add('has-header'); appView.style.display = 'block';
   setTimeout(() => {
     if (map) {
@@ -554,11 +597,18 @@ function showApp() {
 }
 function showLeaderboard() {
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
-  homeView.style.display = 'none'; appView.style.display = 'none';
+  homeView.style.display = 'none'; appView.style.display = 'none'; parcoursView.style.display = 'none';
   leaderboardView.classList.add('has-header'); leaderboardView.style.display = 'block';
+}
+function showParcours() {
+  gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
+  homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none';
+  parcoursView.classList.add('has-header'); parcoursView.style.display = 'block';
+  renderParcoursRanking();
 }
 
 document.getElementById('nav-home-link').addEventListener('click', (e) => { e.preventDefault(); showHome(); });
+document.getElementById('nav-parcours-link').addEventListener('click', (e) => { e.preventDefault(); showParcours(); });
 document.getElementById('nav-leaderboard-link').addEventListener('click', (e) => { e.preventDefault(); showLeaderboard(); });
 document.getElementById('back-to-home').addEventListener('click', showHome);
 
