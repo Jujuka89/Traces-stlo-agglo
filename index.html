@@ -328,12 +328,12 @@
       <div style="font-weight:600; font-size:15px; margin-bottom:12px; color:var(--text);">Votez !</div>
       <div class="msg" id="vote-lock-msg" style="display:none; color:var(--text-dim); margin-bottom:12px;">🔒 Validez votre parcours ci-dessus pour pouvoir le noter.</div>
       <div style="margin-bottom:14px;">
-        <label style="font-size:13px; color:var(--text-dim);">Difficulté : <span id="vote-diff-val">5</span>/10</label>
-        <input type="range" min="1" max="10" value="5" id="vote-diff" style="width:100%; accent-color:#FF5A1F;">
+        <label style="font-size:13px; color:var(--text-dim);">Difficulté : <span id="vote-diff-val">10</span>/20</label>
+        <input type="range" min="0" max="20" value="10" id="vote-diff" style="width:100%; accent-color:#FF5A1F;">
       </div>
       <div style="margin-bottom:14px;">
-        <label style="font-size:13px; color:var(--text-dim);">Appréciation : <span id="vote-appr-val">5</span>/10</label>
-        <input type="range" min="1" max="10" value="5" id="vote-appr" style="width:100%; accent-color:#FF5A1F;">
+        <label style="font-size:13px; color:var(--text-dim);">Appréciation : <span id="vote-appr-val">10</span>/20</label>
+        <input type="range" min="0" max="20" value="10" id="vote-appr" style="width:100%; accent-color:#FF5A1F;">
       </div>
       <button class="btn btn-primary" id="submit-vote">Envoyer mon vote</button>
       <div class="msg" id="vote-status"></div>
@@ -377,6 +377,10 @@ const db = getFirestore(app);
 
 /* ---------- CHARGEMENT DES PARCOURS DEPUIS /traces/ ---------- */
 let TRACES = {};        // id -> objet complet (coords, eles, gpxBase64, stats...)
+
+function formatNote(n) {
+  return n.toFixed(1).replace('.', ',');
+}
 let TRACE_LIST = [];    // [{id, name, subtitle, distance_km, participants}]
 let tracesLoaded = false;
 
@@ -529,7 +533,7 @@ function renderHome() {
 }
 
 function traceCardBody(t) {
-  const ratingLabel = (t.avgAppreciation != null) ? '⭐ ' + Math.round(t.avgAppreciation) : '⭐ --';
+  const ratingLabel = (t.avgAppreciation != null) ? '⭐ ' + formatNote(t.avgAppreciation) : '⭐ --';
   const metaParts = [];
   if (t.subtitle) metaParts.push(t.subtitle);
   metaParts.push(ratingLabel);
@@ -1004,12 +1008,12 @@ function watchTraceData(traceId) {
       const v = d.data();
       if (typeof v.difficulte === 'number') { dSum += v.difficulte; aSum += v.appreciation; n++; }
     });
-    const dAvg = n ? Math.round(dSum / n) : '--';
-    const aAvg = n ? Math.round(aSum / n) : '--';
+    const dAvg = n ? formatNote(dSum / n) : '--';
+    const aAvg = n ? formatNote(aSum / n) : '--';
     const ratingsEl = document.getElementById('map-ratings');
     if (ratingsEl) ratingsEl.textContent = '⭐ ' + aAvg + ' · 💪 ' + dAvg;
-    document.getElementById('rating-difficulte').textContent = dAvg + '/10';
-    document.getElementById('rating-appreciation').textContent = aAvg + '/10';
+    document.getElementById('rating-difficulte').textContent = dAvg + '/20';
+    document.getElementById('rating-appreciation').textContent = aAvg + '/20';
     document.getElementById('votes-difficulte').textContent = 'Difficulté (' + n + ' vote' + (n > 1 ? 's' : '') + ')';
     document.getElementById('votes-appreciation').textContent = 'Appréciation (' + n + ' vote' + (n > 1 ? 's' : '') + ')';
   });
