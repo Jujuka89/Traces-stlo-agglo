@@ -117,6 +117,16 @@
   #app-view.has-header .content { padding-top: 82px; }
   #map { width: 100%; height: 300px; display: block; }
 
+  #leaderboard-view { display: none; }
+  #leaderboard-view.has-header .content { padding-top: 82px; }
+  .leaderboard-row {
+    display: flex; align-items: center; gap: 14px; background: var(--white);
+    border: 1px solid var(--line); border-radius: 5px; padding: 14px 18px; margin-bottom: 10px;
+  }
+  .leaderboard-rank { font-family: "Fraunces", serif; font-weight: 700; font-size: 19px; color: var(--brick); width: 30px; text-align: center; flex-shrink: 0; }
+  .leaderboard-name { flex: 1; font-weight: 600; color: var(--ink); }
+  .leaderboard-count { font-family: "Fraunces", serif; font-weight: 700; color: var(--forest); white-space: nowrap; }
+
   .content { max-width: 660px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
   .page-title { font-family: "Fraunces", serif; font-size: 25px; font-weight: 600; margin: 0 0 5px 0; color: var(--forest); }
   .page-sub { color: var(--moss); font-size: 14px; margin-bottom: 22px; }
@@ -159,6 +169,7 @@
   <nav class="nav-menu">
     <span class="nav-user" id="header-user-label"></span>
     <a href="#" id="nav-home-link">Accueil</a>
+    <a href="#" id="nav-leaderboard-link">Classement</a>
     <a href="#" id="nav-logout-link">Déconnexion</a>
   </nav>
 </header>
@@ -184,6 +195,14 @@
     <div class="page-title" style="margin-top:20px;">Parcours disponibles</div>
     <div class="page-sub">Choisissez un tracé pour consulter la carte, valider votre passage et donner votre avis.</div>
     <div id="trace-list"></div>
+  </div>
+</div>
+
+<div id="leaderboard-view">
+  <div class="content">
+    <div class="page-title" style="margin-top:20px;">Classement</div>
+    <div class="page-sub">Les participants ayant validé le plus de parcours différents.</div>
+    <div id="leaderboard-list"><div style="color:var(--moss);">Chargement…</div></div>
   </div>
 </div>
 
@@ -259,7 +278,7 @@ import {
   signOut, onAuthStateChanged, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, doc, setDoc, getDoc, collection, onSnapshot, serverTimestamp
+  getFirestore, doc, setDoc, getDoc, collection, collectionGroup, onSnapshot, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -310,7 +329,46 @@ const siteHeader = document.getElementById('site-header');
 const gateView = document.getElementById('gate-view');
 const homeView = document.getElementById('home-view');
 const appView = document.getElementById('app-view');
+const leaderboardView = document.getElementById('leaderboard-view');
 const loadingScreen = document.getElementById('loading-screen');
+
+let unsubLeaderboard = null;
+
+function watchLeaderboard() {
+  if (unsubLeaderboard) unsubLeaderboard();
+  unsubLeaderboard = onSnapshot(collectionGroup(db, 'validations'), (snap) => {
+    const counts = {};
+    snap.forEach(docSnap => {
+      const uid = docSnap.id;
+      const data = docSnap.data();
+      if (!counts[uid]) counts[uid] = { nom: data.nom || 'Anonyme', count: 0 };
+      counts[uid].count++;
+      if (data.nom) counts[uid].nom = data.nom;
+    });
+    renderLeaderboard(Object.values(counts).sort((a, b) => b.count - a.count));
+  }, (e) => {
+    document.getElementById('leaderboard-list').innerHTML =
+      '<div style="color:var(--brick);">Erreur de chargement du classement : ' + e.code + '</div>';
+  });
+}
+
+function renderLeaderboard(ranking) {
+  const list = document.getElementById('leaderboard-list');
+  if (!ranking.length) {
+    list.innerHTML = '<div style="color:var(--moss);">Aucune validation pour le moment.</div>';
+    return;
+  }
+  const medals = ['🥇', '🥈', '🥉'];
+  list.innerHTML = ranking.map((r, i) => {
+    const rankLabel = medals[i] || (i + 1);
+    const label = r.count > 1 ? 'parcours' : 'parcours';
+    return '<div class="leaderboard-row">' +
+      '<div class="leaderboard-rank">' + rankLabel + '</div>' +
+      '<div class="leaderboard-name">' + r.nom + '</div>' +
+      '<div class="leaderboard-count">' + r.count + ' ' + label + '</div>' +
+    '</div>';
+  }).join('');
+}
 
 let homeMap = null;
 
@@ -394,10 +452,10 @@ document.addEventListener('click', (e) => {
   if (e.target.classList.contains('popup-link')) openTrace(e.target.dataset.trace);
 });
 
-function showGate() { siteHeader.style.display = 'none'; gateView.style.display = 'flex'; homeView.style.display = 'none'; appView.style.display = 'none'; }
+function showGate() { siteHeader.style.display = 'none'; gateView.style.display = 'flex'; homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; }
 function showHome() {
   gateView.style.display = 'none'; siteHeader.style.display = 'flex';
-  appView.style.display = 'none';
+  appView.style.display = 'none'; leaderboardView.style.display = 'none';
   homeView.classList.add('has-header'); homeView.style.display = 'block';
   setTimeout(() => {
     if (homeMap) {
@@ -413,7 +471,7 @@ function showHome() {
 }
 function showApp() {
   gateView.style.display = 'none'; siteHeader.style.display = 'flex';
-  homeView.style.display = 'none';
+  homeView.style.display = 'none'; leaderboardView.style.display = 'none';
   appView.classList.add('has-header'); appView.style.display = 'block';
   setTimeout(() => {
     if (map) {
@@ -422,8 +480,14 @@ function showApp() {
     }
   }, 60);
 }
+function showLeaderboard() {
+  gateView.style.display = 'none'; siteHeader.style.display = 'flex';
+  homeView.style.display = 'none'; appView.style.display = 'none';
+  leaderboardView.classList.add('has-header'); leaderboardView.style.display = 'block';
+}
 
 document.getElementById('nav-home-link').addEventListener('click', (e) => { e.preventDefault(); showHome(); });
+document.getElementById('nav-leaderboard-link').addEventListener('click', (e) => { e.preventDefault(); showLeaderboard(); });
 document.getElementById('back-to-home').addEventListener('click', showHome);
 
 /* ---------- OUVERTURE D'UN PARCOURS ---------- */
@@ -550,6 +614,7 @@ onAuthStateChanged(auth, async (user) => {
       loadingScreen.style.display = 'none';
       renderHome();
       watchAllParticipantCounts();
+      watchLeaderboard();
       showHome();
     } catch (e) {
       loadingScreen.textContent = 'Erreur de chargement des parcours : ' + e.message;
@@ -557,6 +622,7 @@ onAuthStateChanged(auth, async (user) => {
   } else {
     if (unsubValidations) unsubValidations();
     if (unsubVotes) unsubVotes();
+    if (unsubLeaderboard) unsubLeaderboard();
     unsubHomeCounts.forEach(u => u());
     unsubHomeCounts = [];
     loadingScreen.style.display = 'none';
