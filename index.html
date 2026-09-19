@@ -379,7 +379,7 @@ const db = getFirestore(app);
 let TRACES = {};        // id -> objet complet (coords, eles, gpxBase64, stats...)
 
 function formatNote(n) {
-  return n.toFixed(1).replace('.', ',');
+  return String(Math.round(n));
 }
 let TRACE_LIST = [];    // [{id, name, subtitle, distance_km, participants}]
 let tracesLoaded = false;
@@ -533,7 +533,8 @@ function renderHome() {
 }
 
 function traceCardBody(t) {
-  const ratingLabel = (t.avgAppreciation != null) ? '⭐ ' + formatNote(t.avgAppreciation) : '⭐ --';
+  const ratingIcon = (t.avgAppreciation != null && t.avgAppreciation > 18) ? '❤️' : '⭐';
+  const ratingLabel = (t.avgAppreciation != null) ? ratingIcon + ' ' + formatNote(t.avgAppreciation) : '⭐ --';
   const metaParts = [];
   if (t.subtitle) metaParts.push(t.subtitle);
   metaParts.push(ratingLabel);
@@ -1010,8 +1011,9 @@ function watchTraceData(traceId) {
     });
     const dAvg = n ? formatNote(dSum / n) : '--';
     const aAvg = n ? formatNote(aSum / n) : '--';
+    const apprIcon = (n && (aSum / n) > 18) ? '❤️' : '⭐';
     const ratingsEl = document.getElementById('map-ratings');
-    if (ratingsEl) ratingsEl.textContent = '⭐ ' + aAvg + ' · 💪 ' + dAvg;
+    if (ratingsEl) ratingsEl.textContent = apprIcon + ' ' + aAvg + ' · 💪 ' + dAvg;
     document.getElementById('rating-difficulte').textContent = dAvg + '/20';
     document.getElementById('rating-appreciation').textContent = aAvg + '/20';
     document.getElementById('votes-difficulte').textContent = 'Difficulté (' + n + ' vote' + (n > 1 ? 's' : '') + ')';
