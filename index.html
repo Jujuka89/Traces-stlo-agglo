@@ -239,7 +239,7 @@
       <p class="hero-note">Pas de classement « officiel », juste pour le fun et l'aventure.</p>
     </div>
     <div id="home-map-wrap" class="chart-card" style="padding:0; overflow:hidden;"><div id="home-map"></div></div>
-    <div class="page-title" style="margin-top:20px;">Parcours disponibles</div>
+    <div class="page-title" style="margin-top:20px;">Parcours à réaliser</div>
     <div class="page-sub">Choisissez un tracé pour consulter la carte, valider votre passage et donner votre avis.</div>
     <div id="trace-list"></div>
   </div>
@@ -477,7 +477,15 @@ function traceCardBody(t) {
 function renderTraceList() {
   const list = document.getElementById('trace-list');
   list.innerHTML = '';
-  TRACE_LIST.forEach(t => {
+  const todo = TRACE_LIST
+    .filter(t => !t.validated)
+    .sort((a, b) => {
+      const av = (a.avgAppreciation != null) ? a.avgAppreciation : -1;
+      const bv = (b.avgAppreciation != null) ? b.avgAppreciation : -1;
+      return bv - av;
+    })
+    .slice(0, 3);
+  todo.forEach(t => {
     const card = document.createElement('div');
     card.className = 'trace-card ' + (t.validated ? 'is-validated' : 'is-pending');
     card.innerHTML = traceCardBody(t);
