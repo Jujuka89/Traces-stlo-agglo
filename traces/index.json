@@ -24,6 +24,12 @@
     "distance_km": 21.28
   },
   {
+    "id": "31_chevry_nul",
+    "name": "31) Chevry [NUL]",
+    "subtitle": "",
+    "distance_km": 24.83
+  },
+  {
     "id": "sainte_suzanne_sur_vire",
     "name": "Sainte Suzanne sur Vire",
     "subtitle": "",
