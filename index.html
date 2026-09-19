@@ -517,6 +517,24 @@ function renderGallery(items) {
   ).join('');
 }
 
+/* ---------- COMPTEUR DE VISITES ---------- */
+let unsubSiteStats = null;
+
+async function bumpVisitCounter() {
+  try {
+    await setDoc(doc(db, 'stats', 'site'), { visits: increment(1) }, { merge: true });
+  } catch (e) { /* silencieux : le compteur ne bougera juste pas cette fois */ }
+}
+
+function watchSiteStats() {
+  if (unsubSiteStats) unsubSiteStats();
+  unsubSiteStats = onSnapshot(doc(db, 'stats', 'site'), (snap) => {
+    const visits = (snap.exists() && typeof snap.data().visits === 'number') ? snap.data().visits : 0;
+    const el = document.getElementById('footer-visits');
+    if (el) el.textContent = visits;
+  }, (e) => { /* silencieux */ });
+}
+
 let homeMap = null;
 
 function renderHome() {
