@@ -48,6 +48,18 @@
   .nav-menu a:hover { color: var(--accent); }
   .nav-user { font-size: 12px; color: var(--text-dim); margin-right: 4px; }
 
+  #site-footer {
+    display: none;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(16,17,20,0.85); backdrop-filter: blur(10px);
+    border-top: 1px solid var(--line);
+    align-items: center; justify-content: center; gap: 16px;
+    padding: 13px 18px; box-sizing: border-box; z-index: 2200;
+    font-size: 13px;
+  }
+  #site-footer a { color: var(--text-dim); text-decoration: none; font-weight: 500; cursor: pointer; transition: color 0.15s ease; }
+  #site-footer a:hover { color: var(--accent); }
+
   #gate-view {
     position: fixed; inset: 0; z-index: 2500;
     background:
@@ -78,7 +90,7 @@
   .msg.ok { color: var(--validated); }
 
   #home-view { display: none; }
-  #home-view.has-header .content { padding-top: 108px; }
+  #home-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
   #home-map { width: 100%; height: 400px; display: block; filter: saturate(0.9) brightness(0.95); }
   #home-map-wrap, #map-wrap {
     border: 1px solid var(--line) !important;
@@ -90,10 +102,14 @@
   .trace-card {
     background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 12px;
     display: flex; justify-content: space-between; align-items: center;
-    cursor: pointer; transition: border-color 0.15s ease, transform 0.1s ease;
+    cursor: pointer; transition: border-color 0.15s ease, transform 0.1s ease, background 0.15s ease;
   }
-  .trace-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .trace-card:hover { transform: translateY(-1px); }
   .trace-card:active { transform: translateY(0); }
+  .trace-card.is-validated { border-color: #3DDC84; background: linear-gradient(135deg, rgba(61,220,132,0.12), var(--surface)); }
+  .trace-card.is-validated:hover { border-color: #3DDC84; }
+  .trace-card.is-pending { border-color: #FF5A1F; background: linear-gradient(135deg, rgba(255,90,31,0.10), var(--surface)); }
+  .trace-card.is-pending:hover { border-color: #FF5A1F; }
   .trace-card-name { font-family: "Space Grotesk", sans-serif; font-size: 17px; font-weight: 600; color: var(--text); }
   .trace-card-sub { font-size: 13px; color: var(--text-dim); margin-top: 3px; }
   .trace-card-dist { font-family: "Space Grotesk", sans-serif; font-size: 16px; font-weight: 700; color: var(--accent); white-space: nowrap; margin-left: 12px; }
@@ -115,11 +131,11 @@
   .back-btn:hover { border-color: var(--accent); color: var(--accent); }
 
   #app-view { display: none; }
-  #app-view.has-header .content { padding-top: 108px; }
+  #app-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
   #map { width: 100%; height: 300px; display: block; filter: saturate(0.9) brightness(0.95); }
 
   #leaderboard-view { display: none; }
-  #leaderboard-view.has-header .content { padding-top: 108px; }
+  #leaderboard-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
   .leaderboard-row {
     display: flex; align-items: center; gap: 14px; background: var(--surface);
     border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px;
@@ -182,12 +198,15 @@
 <header id="site-header">
   <div class="site-logo"><span class="icon">🚵</span> Challenge VTT Saint-Lô Agglo</div>
   <nav class="nav-menu">
-    <span class="nav-user" id="header-user-label"></span>
     <a href="#" id="nav-home-link">Accueil</a>
     <a href="#" id="nav-leaderboard-link">Classement</a>
-    <a href="#" id="nav-logout-link">Déconnexion</a>
   </nav>
 </header>
+
+<footer id="site-footer">
+  <span class="nav-user" id="header-user-label"></span>
+  <a href="#" id="nav-logout-link">Déconnexion</a>
+</footer>
 
 <div id="gate-view">
   <div class="card">
@@ -207,7 +226,7 @@
 <div id="home-view">
   <div class="content">
     <div class="hero-panel">
-      <p>En manque d'idées pour vos sorties VTT : Participez au challenge VTT des communes de l'agglo de Saint-Lô.</p>
+      <p>Participez au challenge VTT des communes de l'agglo de Saint-Lô.</p>
       <p class="hero-stat">🚵 Plus de 60 tracés VTT pour tous niveaux !</p>
       <p>Objectif : se faire plaisir et découvrir les différents villages et leurs paysages.</p>
       <p class="hero-note">Pas de classement « officiel », juste pour le fun et l'aventure.</p>
@@ -348,6 +367,7 @@ let currentTraceId = null;
 let map, track;
 
 const siteHeader = document.getElementById('site-header');
+const siteFooter = document.getElementById('site-footer');
 const gateView = document.getElementById('gate-view');
 const homeView = document.getElementById('home-view');
 const appView = document.getElementById('app-view');
@@ -430,8 +450,8 @@ function renderTraceList() {
   list.innerHTML = '';
   TRACE_LIST.forEach(t => {
     const card = document.createElement('div');
-    card.className = 'trace-card';
-    const ratingLabel = (t.avgAppreciation != null) ? '⭐ ' + t.avgAppreciation.toFixed(1) : '⭐ --';
+    card.className = 'trace-card ' + (t.validated ? 'is-validated' : 'is-pending');
+    const ratingLabel = (t.avgAppreciation != null) ? '⭐ ' + Math.round(t.avgAppreciation) : '⭐ --';
     card.innerHTML =
       '<div style="flex:1;">' +
         '<div class="trace-card-name">' + t.name + '</div>' +
@@ -453,6 +473,12 @@ function watchAllParticipantCounts() {
   unsubHomeCounts = TRACE_LIST.map(t =>
     onSnapshot(collection(db, 'traces', t.id, 'validations'), (snap) => {
       t.participants = snap.size;
+      t.validated = currentUser ? snap.docs.some(d => d.id === currentUser.uid) : false;
+      if (t._polygon) {
+        t._polygon.setStyle(t.validated
+          ? { color: '#3DDC84', fillColor: '#1FA65C' }
+          : { color: '#FF5A1F', fillColor: '#FF8659' });
+      }
       renderTraceList();
     }, (e) => { /* ignore les erreurs de lecture ici, la fiche du parcours les affichera */ })
   );
@@ -498,9 +524,9 @@ document.addEventListener('click', (e) => {
   if (e.target.classList.contains('popup-link')) openTrace(e.target.dataset.trace);
 });
 
-function showGate() { siteHeader.style.display = 'none'; gateView.style.display = 'flex'; homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; }
+function showGate() { siteHeader.style.display = 'none'; siteFooter.style.display = 'none'; gateView.style.display = 'flex'; homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; }
 function showHome() {
-  gateView.style.display = 'none'; siteHeader.style.display = 'flex';
+  gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   appView.style.display = 'none'; leaderboardView.style.display = 'none';
   homeView.classList.add('has-header'); homeView.style.display = 'block';
   setTimeout(() => {
@@ -516,7 +542,7 @@ function showHome() {
   }, 60);
 }
 function showApp() {
-  gateView.style.display = 'none'; siteHeader.style.display = 'flex';
+  gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; leaderboardView.style.display = 'none';
   appView.classList.add('has-header'); appView.style.display = 'block';
   setTimeout(() => {
@@ -527,7 +553,7 @@ function showApp() {
   }, 60);
 }
 function showLeaderboard() {
-  gateView.style.display = 'none'; siteHeader.style.display = 'flex';
+  gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; appView.style.display = 'none';
   leaderboardView.classList.add('has-header'); leaderboardView.style.display = 'block';
 }
@@ -804,8 +830,8 @@ function watchTraceData(traceId) {
       const v = d.data();
       if (typeof v.difficulte === 'number') { dSum += v.difficulte; aSum += v.appreciation; n++; }
     });
-    const dAvg = n ? (dSum / n).toFixed(1) : '--';
-    const aAvg = n ? (aSum / n).toFixed(1) : '--';
+    const dAvg = n ? Math.round(dSum / n) : '--';
+    const aAvg = n ? Math.round(aSum / n) : '--';
     const ratingsEl = document.getElementById('map-ratings');
     if (ratingsEl) ratingsEl.textContent = '⭐ ' + aAvg + ' · 💪 ' + dAvg;
     document.getElementById('rating-difficulte').textContent = dAvg + '/10';
