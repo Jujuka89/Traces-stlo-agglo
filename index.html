@@ -53,9 +53,9 @@
     position: fixed; bottom: 0; left: 0; right: 0;
     background: rgba(16,17,20,0.85); backdrop-filter: blur(10px);
     border-top: 1px solid var(--line);
-    align-items: center; justify-content: center; gap: 16px;
-    padding: 13px 18px; box-sizing: border-box; z-index: 2200;
-    font-size: 13px;
+    align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap;
+    padding: 10px 18px; box-sizing: border-box; z-index: 2200;
+    font-size: 12px;
   }
   #site-footer a { color: var(--text-dim); text-decoration: none; font-weight: 500; cursor: pointer; transition: color 0.15s ease; }
   #site-footer a:hover { color: var(--accent); }
@@ -226,6 +226,8 @@
 
 <footer id="site-footer">
   <span class="nav-user" id="header-user-label"></span>
+  <span class="nav-user">👀 <span id="footer-visits">--</span> visites</span>
+  <span class="nav-user">🚵 <span id="footer-participants">--</span> participants</span>
   <a href="#" id="nav-logout-link">Déconnexion</a>
 </footer>
 
@@ -367,7 +369,7 @@ import {
   signOut, onAuthStateChanged, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, doc, setDoc, getDoc, collection, collectionGroup, onSnapshot, serverTimestamp
+  getFirestore, doc, setDoc, getDoc, collection, collectionGroup, onSnapshot, serverTimestamp, increment
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -449,6 +451,8 @@ function watchLeaderboard() {
       if (data.nom) counts[uid].nom = data.nom;
     });
     renderLeaderboard(Object.values(counts).sort((a, b) => b.count - a.count));
+    const footerParticipants = document.getElementById('footer-participants');
+    if (footerParticipants) footerParticipants.textContent = Object.keys(counts).length;
   }, (e) => {
     document.getElementById('leaderboard-list').innerHTML =
       '<div style="color:var(--brick);">Erreur de chargement du classement : ' + e.code + '</div>';
@@ -855,6 +859,8 @@ onAuthStateChanged(auth, async (user) => {
       watchAllRatings();
       watchLeaderboard();
       watchGallery();
+      watchSiteStats();
+      bumpVisitCounter();
       showHome();
       checkForNewTraces();
     } catch (e) {
@@ -866,6 +872,7 @@ onAuthStateChanged(auth, async (user) => {
     if (unsubLeaderboard) unsubLeaderboard();
     if (unsubGallery) unsubGallery();
     if (unsubRatings) unsubRatings();
+    if (unsubSiteStats) unsubSiteStats();
     unsubHomeCounts.forEach(u => u());
     unsubHomeCounts = [];
     loadingScreen.style.display = 'none';
