@@ -431,12 +431,13 @@ function renderTraceList() {
   TRACE_LIST.forEach(t => {
     const card = document.createElement('div');
     card.className = 'trace-card';
+    const ratingLabel = (t.avgAppreciation != null) ? '⭐ ' + t.avgAppreciation.toFixed(1) : '⭐ --';
     card.innerHTML =
       '<div style="flex:1;">' +
         '<div class="trace-card-name">' + t.name + '</div>' +
         '<div class="trace-card-sub">' + (t.subtitle || '') + '</div>' +
-        '<div class="trace-card-sub" style="margin-top:6px;">👥 ' +
-          t.participants + ' participant' + (t.participants > 1 ? 's' : '') +
+        '<div class="trace-card-sub" style="margin-top:6px;">' +
+          ratingLabel + ' · 👥 ' + t.participants + ' participant' + (t.participants > 1 ? 's' : '') +
         '</div>' +
       '</div>' +
       '<div class="trace-card-dist">' + t.distance_km + ' km</div>';
@@ -455,6 +456,29 @@ function watchAllParticipantCounts() {
       renderTraceList();
     }, (e) => { /* ignore les erreurs de lecture ici, la fiche du parcours les affichera */ })
   );
+}
+
+let unsubRatings = null;
+
+function watchAllRatings() {
+  if (unsubRatings) unsubRatings();
+  unsubRatings = onSnapshot(collectionGroup(db, 'votes'), (snap) => {
+    const sums = {}; // id de parcours -> { sum, count }
+    snap.forEach(docSnap => {
+      const traceId = docSnap.ref.parent.parent.id;
+      const data = docSnap.data();
+      if (typeof data.appreciation !== 'number') return;
+      if (!sums[traceId]) sums[traceId] = { sum: 0, count: 0 };
+      sums[traceId].sum += data.appreciation;
+      sums[traceId].count++;
+    });
+    TRACE_LIST.forEach(t => {
+      const s = sums[t.id];
+      t.avgAppreciation = s ? (s.sum / s.count) : null;
+      t.voteCount = s ? s.count : 0;
+    });
+    renderTraceList();
+  }, (e) => { /* pas grave si ça échoue, l'étoile reste à -- */ });
 }
 
 async function refreshHomeColors() {
@@ -636,6 +660,7 @@ onAuthStateChanged(auth, async (user) => {
       loadingScreen.style.display = 'none';
       renderHome();
       watchAllParticipantCounts();
+      watchAllRatings();
       watchLeaderboard();
       showHome();
     } catch (e) {
@@ -645,6 +670,7 @@ onAuthStateChanged(auth, async (user) => {
     if (unsubValidations) unsubValidations();
     if (unsubVotes) unsubVotes();
     if (unsubLeaderboard) unsubLeaderboard();
+    if (unsubRatings) unsubRatings();
     unsubHomeCounts.forEach(u => u());
     unsubHomeCounts = [];
     loadingScreen.style.display = 'none';
