@@ -317,8 +317,8 @@
     <div class="section-title">Participants ayant validé</div>
     <div class="chart-card">
       <table>
-        <thead><tr><th>Photo</th><th>Prénom</th><th>Date</th></tr></thead>
-        <tbody id="participants-body"><tr><td colspan="3" style="color:#9A9CA5;">Chargement…</td></tr></tbody>
+        <thead><tr><th>Photo</th><th>Prénom</th><th>Date</th><th>Temps</th></tr></thead>
+        <tbody id="participants-body"><tr><td colspan="4" style="color:#9A9CA5;">Chargement…</td></tr></tbody>
       </table>
     </div>
 
@@ -993,13 +993,14 @@ async function loadMyValidation(traceId) {
   }
 }
 
-async function performValidation(source) {
+async function performValidation(source, durationSeconds) {
   if (!currentUser || !currentTraceId) return;
   validateMsg.className = 'msg'; validateMsg.textContent = 'Enregistrement…';
   try {
     const payload = { nom: currentUser.displayName || currentUser.email, date: serverTimestamp() };
     if (photoDataUrl) payload.photo = photoDataUrl;
     if (source === 'gpx') payload.viaGpx = true;
+    if (durationSeconds) payload.dureeSecondes = durationSeconds;
     await setDoc(doc(db, 'traces', currentTraceId, 'validations', currentUser.uid), payload, { merge: true });
     setTrackValidated(true);
     const homeTrace = TRACE_LIST.find(t => t.id === currentTraceId);
@@ -1050,12 +1051,35 @@ function gpxMatchPercentage(referenceCoords, uploadedCoords, toleranceMeters) {
   return total ? (covered / total) * 100 : 0;
 }
 
-function parseGpxCoords(gpxText) {
+function formatDuration(totalSeconds) {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.round((totalSeconds % 3600) / 60);
+  if (h > 0) return h + 'h' + (m > 0 ? ' ' + m + 'min' : '');
+  return m + ' min';
+}
+
+function parseGpxData(gpxText) {
   const xml = new DOMParser().parseFromString(gpxText, 'application/xml');
   if (xml.getElementsByTagName('parsererror').length) return null;
   const pts = Array.from(xml.getElementsByTagName('trkpt'));
   if (!pts.length) return null;
-  return pts.map(pt => [parseFloat(pt.getAttribute('lat')), parseFloat(pt.getAttribute('lon'))]);
+
+  const coords = pts.map(pt => [parseFloat(pt.getAttribute('lat')), parseFloat(pt.getAttribute('lon'))]);
+
+  const times = pts
+    .map(pt => {
+      const timeEl = pt.getElementsByTagName('time')[0];
+      return (timeEl && timeEl.textContent) ? new Date(timeEl.textContent) : null;
+    })
+    .filter(t => t && !isNaN(t.getTime()));
+
+  let durationSeconds = null;
+  if (times.length >= 2) {
+    durationSeconds = Math.round((times[times.length - 1].getTime() - times[0].getTime()) / 1000);
+    if (durationSeconds <= 0) durationSeconds = null; // horodatage incohérent, on ignore
+  }
+
+  return { coords, durationSeconds };
 }
 
 document.getElementById('gpx-input').addEventListener('change', (e) => {
@@ -1068,25 +1092,26 @@ document.getElementById('gpx-input').addEventListener('change', (e) => {
 
   const reader = new FileReader();
   reader.onload = (ev) => {
-    const uploaded = parseGpxCoords(ev.target.result);
-    if (!uploaded) {
+    const parsed = parseGpxData(ev.target.result);
+    if (!parsed) {
       msg.className = 'msg err';
       msg.textContent = 'Fichier GPX illisible ou vide. Vous pouvez valider manuellement ci-dessous.';
       return;
     }
     const reference = TRACES[currentTraceId].coords;
-    const pct = gpxMatchPercentage(reference, uploaded, GPX_MATCH_TOLERANCE_M);
+    const pct = gpxMatchPercentage(reference, parsed.coords, GPX_MATCH_TOLERANCE_M);
+    const durationText = parsed.durationSeconds ? ' · Temps : ' + formatDuration(parsed.durationSeconds) : '';
 
     if (pct >= GPX_MATCH_THRESHOLD_PCT) {
       msg.className = 'msg ok';
-      msg.textContent = 'Trace reconnue à ' + pct.toFixed(0) + '% du circuit ✓';
+      msg.textContent = 'Trace reconnue à ' + pct.toFixed(0) + '% du circuit ✓' + durationText;
       if (!validateBtn.disabled) {
-        performValidation('gpx');
+        performValidation('gpx', parsed.durationSeconds);
       }
     } else {
       msg.className = 'msg err';
       msg.textContent = 'Seulement ' + pct.toFixed(0) + '% du circuit reconnu dans votre trace (minimum ' +
-        GPX_MATCH_THRESHOLD_PCT + '% requis). Vous pouvez valider manuellement ci-dessous si vous êtes sûr(e) d\'avoir fait le parcours.';
+        GPX_MATCH_THRESHOLD_PCT + '% requis)' + durationText + '. Vous pouvez valider manuellement ci-dessous si vous êtes sûr(e) d\'avoir fait le parcours.';
     }
   };
   reader.onerror = () => {
@@ -1111,7 +1136,7 @@ function watchTraceData(traceId) {
     }
 
     if (snap.empty) {
-      tbody.innerHTML = '<tr><td colspan="3" style="color:#9A9CA5;">Aucune validation pour le moment.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" style="color:#9A9CA5;">Aucune validation pour le moment.</td></tr>';
       return;
     }
     const rows = [];
@@ -1120,9 +1145,10 @@ function watchTraceData(traceId) {
     tbody.innerHTML = rows.map(r => {
       const dateStr = r.date?.seconds ? new Date(r.date.seconds * 1000).toLocaleDateString('fr-FR') : '—';
       const photo = r.photo ? '<img class="thumb" src="' + r.photo + '" data-full="' + r.photo + '">' : '<span style="color:#5A5C64;">—</span>';
-      return '<tr><td>' + photo + '</td><td>' + (r.nom || '—') + '</td><td>' + dateStr + '</td></tr>';
+      const temps = r.dureeSecondes ? formatDuration(r.dureeSecondes) : '—';
+      return '<tr><td>' + photo + '</td><td>' + (r.nom || '—') + '</td><td>' + dateStr + '</td><td>' + temps + '</td></tr>';
     }).join('');
-  }, (e) => { tbody.innerHTML = '<tr><td colspan="3" style="color:#FF5A1F;">Erreur : ' + e.code + '</td></tr>'; });
+  }, (e) => { tbody.innerHTML = '<tr><td colspan="4" style="color:#FF5A1F;">Erreur : ' + e.code + '</td></tr>'; });
 
   unsubVotes = onSnapshot(collection(db, 'traces', traceId, 'votes'), (snap) => {
     let dSum = 0, aSum = 0, n = 0;
