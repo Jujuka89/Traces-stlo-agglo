@@ -144,6 +144,9 @@
   }
   .chart-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
 
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none !important; transform: none !important; }
+  input[type="range"]:disabled { opacity: 0.35; cursor: not-allowed; }
+
   .hero-panel {
     background: linear-gradient(135deg, var(--accent-soft), var(--surface));
     border: 1px solid var(--line); border-radius: 16px; padding: 24px; margin-bottom: 20px;
@@ -271,13 +274,14 @@
     </div>
 
     <div class="chart-card" style="margin-bottom:30px;">
-      <div style="font-weight:600; font-size:15px; margin-bottom:12px;">Votez !</div>
+      <div style="font-weight:600; font-size:15px; margin-bottom:12px; color:var(--text);">Votez !</div>
+      <div class="msg" id="vote-lock-msg" style="display:none; color:var(--text-dim); margin-bottom:12px;">🔒 Validez votre parcours ci-dessus pour pouvoir le noter.</div>
       <div style="margin-bottom:14px;">
-        <label style="font-size:13px; color:#555;">Difficulté : <span id="vote-diff-val">5</span>/10</label>
+        <label style="font-size:13px; color:var(--text-dim);">Difficulté : <span id="vote-diff-val">5</span>/10</label>
         <input type="range" min="1" max="10" value="5" id="vote-diff" style="width:100%; accent-color:#FF5A1F;">
       </div>
       <div style="margin-bottom:14px;">
-        <label style="font-size:13px; color:#555;">Appréciation : <span id="vote-appr-val">5</span>/10</label>
+        <label style="font-size:13px; color:var(--text-dim);">Appréciation : <span id="vote-appr-val">5</span>/10</label>
         <input type="range" min="1" max="10" value="5" id="vote-appr" style="width:100%; accent-color:#FF5A1F;">
       </div>
       <button class="btn btn-primary" id="submit-vote">Envoyer mon vote</button>
@@ -682,20 +686,36 @@ document.getElementById('photo-input').addEventListener('change', (e) => {
 /* ---------- VALIDATION ---------- */
 const validateMsg = document.getElementById('validate-msg');
 const validateBtn = document.getElementById('validate-btn');
+const voteDiffInput = document.getElementById('vote-diff');
+const voteApprInput = document.getElementById('vote-appr');
+const submitVoteBtn = document.getElementById('submit-vote');
+const voteLockMsg = document.getElementById('vote-lock-msg');
+
+function setVoteLocked(locked) {
+  voteDiffInput.disabled = locked;
+  voteApprInput.disabled = locked;
+  submitVoteBtn.disabled = locked;
+  voteLockMsg.style.display = locked ? 'block' : 'none';
+}
 
 async function loadMyValidation(traceId) {
   if (!currentUser) return;
+  setVoteLocked(true); // verrouillé par défaut le temps de la lecture
   try {
     const snap = await getDoc(doc(db, 'traces', traceId, 'validations', currentUser.uid));
     if (snap.exists()) {
       setTrackValidated(true);
-      validateBtn.textContent = 'Parcours validé ✓ (mettre à jour)';
+      validateBtn.textContent = 'Parcours validé ✓';
+      validateBtn.disabled = true;
       validateMsg.className = 'msg ok';
       validateMsg.textContent = 'Votre tracé apparaît en vert.';
+      setVoteLocked(false);
     } else {
       setTrackValidated(false);
       validateBtn.textContent = "J'ai validé mon parcours ✓";
+      validateBtn.disabled = false;
       validateMsg.textContent = '';
+      setVoteLocked(true);
     }
   } catch (e) {
     validateMsg.className = 'msg err'; validateMsg.textContent = 'Lecture impossible : ' + e.code;
@@ -714,8 +734,10 @@ validateBtn.addEventListener('click', async () => {
     if (homeTrace && homeTrace._polygon) {
       homeTrace._polygon.setStyle({ color: '#3DDC84', fillColor: '#1FA65C' });
     }
-    validateBtn.textContent = 'Parcours validé ✓ (mettre à jour)';
+    validateBtn.textContent = 'Parcours validé ✓';
+    validateBtn.disabled = true;
     validateMsg.className = 'msg ok'; validateMsg.textContent = 'Validation enregistrée !';
+    setVoteLocked(false);
   } catch (e) {
     validateMsg.className = 'msg err'; validateMsg.textContent = 'Erreur : ' + e.code;
   }
