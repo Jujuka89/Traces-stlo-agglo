@@ -594,8 +594,8 @@ function watchAllParticipantCounts() {
       t.validated = currentUser ? snap.docs.some(d => d.id === currentUser.uid) : false;
       if (t._polygon) {
         t._polygon.setStyle(t.validated
-          ? { color: '#3DDC84', fillColor: '#1FA65C' }
-          : { color: '#FF5A1F', fillColor: '#FF8659' });
+          ? { color: '#3DDC84', fillColor: '#0F4025', fillOpacity: 0.65 }
+          : { color: '#FF5A1F', fillColor: '#FF8659', fillOpacity: 0.3 });
       }
       renderTraceList();
     }, (e) => { /* ignore les erreurs de lecture ici, la fiche du parcours les affichera */ })
@@ -632,8 +632,8 @@ async function refreshHomeColors() {
     try {
       const snap = await getDoc(doc(db, 'traces', t.id, 'validations', currentUser.uid));
       t._polygon.setStyle(snap.exists()
-        ? { color: '#3DDC84', fillColor: '#1FA65C' }
-        : { color: '#FF5A1F', fillColor: '#FF8659' });
+        ? { color: '#3DDC84', fillColor: '#0F4025', fillOpacity: 0.65 }
+        : { color: '#FF5A1F', fillColor: '#FF8659', fillOpacity: 0.3 });
     } catch (e) { /* reste en rouge si la lecture échoue */ }
   }
 }
@@ -721,7 +721,7 @@ function initOrUpdateMap(trace) {
     }).addTo(map);
   }
   if (track) { map.removeLayer(track); }
-  track = L.polygon(trace.coords, { color: '#FF5A1F', weight: 3, fillColor: '#FF8659', fillOpacity: 0.35 }).addTo(map);
+  track = L.polygon(trace.coords, { color: '#FF5A1F', weight: 3, fillOpacity: 0 }).addTo(map);
   map.fitBounds(track.getBounds(), { padding: [20, 20] });
 }
 
@@ -885,7 +885,7 @@ document.getElementById('new-traces-close').addEventListener('click', () => {
 /* ---------- COULEUR DU TRACÉ ---------- */
 function setTrackValidated(v) {
   if (!track) return;
-  track.setStyle(v ? { color: '#3DDC84', fillColor: '#1FA65C' } : { color: '#FF5A1F', fillColor: '#FF8659' });
+  track.setStyle(v ? { color: '#3DDC84', fillOpacity: 0 } : { color: '#FF5A1F', fillOpacity: 0 });
 }
 
 /* ---------- PHOTO ---------- */
@@ -962,7 +962,7 @@ validateBtn.addEventListener('click', async () => {
     setTrackValidated(true);
     const homeTrace = TRACE_LIST.find(t => t.id === currentTraceId);
     if (homeTrace && homeTrace._polygon) {
-      homeTrace._polygon.setStyle({ color: '#3DDC84', fillColor: '#1FA65C' });
+      homeTrace._polygon.setStyle({ color: '#3DDC84', fillColor: '#0F4025', fillOpacity: 0.65 });
     }
     validateBtn.textContent = 'Parcours validé ✓';
     validateBtn.disabled = true;
