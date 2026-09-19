@@ -326,6 +326,15 @@
 
 <div id="lightbox"><img id="lightbox-img" src=""></div>
 
+<div id="new-traces-modal" style="display:none; position:fixed; inset:0; background:rgba(8,9,11,0.85); z-index:3500; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+  <div style="background:var(--surface); border:1px solid var(--accent); border-radius:16px; padding:28px; max-width:380px; width:100%; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.4);">
+    <div style="font-size:34px; margin-bottom:10px;">🆕</div>
+    <div style="font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:700; margin-bottom:10px; color:var(--text);" id="new-traces-title">Nouveau parcours !</div>
+    <div id="new-traces-list" style="color:var(--text-dim); font-size:14px; margin-bottom:22px; line-height:1.5;"></div>
+    <button class="btn btn-primary" id="new-traces-close" style="width:100%;">Découvrir</button>
+  </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -743,6 +752,7 @@ onAuthStateChanged(auth, async (user) => {
       watchAllRatings();
       watchLeaderboard();
       showHome();
+      checkForNewTraces();
     } catch (e) {
       loadingScreen.textContent = 'Erreur de chargement des parcours : ' + e.message;
     }
@@ -756,6 +766,50 @@ onAuthStateChanged(auth, async (user) => {
     loadingScreen.style.display = 'none';
     showGate();
   }
+});
+
+/* ---------- POPUP NOUVEAUX PARCOURS ---------- */
+const SEEN_TRACES_KEY = 'vtt_seen_traces';
+
+function checkForNewTraces() {
+  const currentIds = TRACE_LIST.map(t => t.id);
+  let seen = null;
+  try {
+    const raw = localStorage.getItem(SEEN_TRACES_KEY);
+    seen = raw ? JSON.parse(raw) : null;
+  } catch (e) { seen = null; }
+
+  if (!seen) {
+    // Première visite sur cet appareil : on mémorise sans notifier
+    try { localStorage.setItem(SEEN_TRACES_KEY, JSON.stringify(currentIds)); } catch (e) {}
+    return;
+  }
+
+  const newOnes = TRACE_LIST.filter(t => !seen.includes(t.id));
+
+  try { localStorage.setItem(SEEN_TRACES_KEY, JSON.stringify(currentIds)); } catch (e) {}
+
+  if (newOnes.length > 0) {
+    showNewTracesPopup(newOnes);
+  }
+}
+
+function showNewTracesPopup(newOnes) {
+  const modal = document.getElementById('new-traces-modal');
+  const title = document.getElementById('new-traces-title');
+  const list = document.getElementById('new-traces-list');
+
+  title.textContent = newOnes.length > 1 ? 'Nouveaux parcours !' : 'Nouveau parcours !';
+  list.innerHTML = newOnes.map(t =>
+    '<div style="margin-bottom:6px;"><strong style="color:var(--text);">' + t.name + '</strong>' +
+    (t.subtitle ? ' — ' + t.subtitle : '') + ' · ' + t.distance_km + ' km</div>'
+  ).join('');
+
+  modal.style.display = 'flex';
+}
+
+document.getElementById('new-traces-close').addEventListener('click', () => {
+  document.getElementById('new-traces-modal').style.display = 'none';
 });
 
 /* ---------- COULEUR DU TRACÉ ---------- */
