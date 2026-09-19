@@ -144,6 +144,15 @@
   }
   .chart-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
 
+  .hero-panel {
+    background: linear-gradient(135deg, var(--accent-soft), var(--surface));
+    border: 1px solid var(--line); border-radius: 16px; padding: 24px; margin-bottom: 20px;
+  }
+  .hero-panel p { margin: 0 0 10px 0; color: var(--text-dim); font-size: 14px; line-height: 1.55; }
+  .hero-panel p:last-child { margin-bottom: 0; }
+  .hero-panel .hero-stat { font-family: "Space Grotesk", sans-serif; font-weight: 700; color: var(--accent); font-size: 17px; }
+  .hero-panel .hero-note { font-style: italic; color: var(--text-dim); font-size: 13px; }
+
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 9px 6px; border-bottom: 1px solid var(--line); }
   th { color: var(--text-dim); font-weight: 600; font-size: 12px; }
@@ -194,6 +203,12 @@
 
 <div id="home-view">
   <div class="content">
+    <div class="hero-panel">
+      <p>Participez au challenge VTT des communes de l'agglo de Saint-Lô.</p>
+      <p class="hero-stat">🚵 Plus de 60 tracés VTT pour tous niveaux !</p>
+      <p>Objectif : se faire plaisir et découvrir les différents villages et leurs paysages.</p>
+      <p class="hero-note">Pas de classement « officiel », juste pour le fun et l'aventure.</p>
+    </div>
     <div id="home-map-wrap" class="chart-card" style="padding:0; overflow:hidden;"><div id="home-map"></div></div>
     <div class="page-title" style="margin-top:20px;">Parcours disponibles</div>
     <div class="page-sub">Choisissez un tracé pour consulter la carte, valider votre passage et donner votre avis.</div>
