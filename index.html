@@ -337,10 +337,12 @@
     <div style="margin-bottom:16px;">
       <label style="font-size:13px; color:var(--text-dim);">Difficulté : <span id="vote-diff-val">10</span>/20</label>
       <input type="range" min="0" max="20" value="10" id="vote-diff" style="width:100%; accent-color:#FF5A1F;">
+      <div id="vote-diff-label" style="font-size:12px; color:var(--accent); font-weight:600; margin-top:4px;"></div>
     </div>
     <div style="margin-bottom:20px;">
       <label style="font-size:13px; color:var(--text-dim);">Appréciation : <span id="vote-appr-val">10</span>/20</label>
       <input type="range" min="0" max="20" value="10" id="vote-appr" style="width:100%; accent-color:#FF5A1F;">
+      <div id="vote-appr-label" style="font-size:12px; color:var(--accent); font-weight:600; margin-top:4px;"></div>
     </div>
     <button class="btn btn-primary" id="submit-vote" style="width:100%;">Valider mon vote</button>
     <div class="msg" id="vote-status"></div>
@@ -1033,12 +1035,45 @@ const myVoteStatus = document.getElementById('my-vote-status');
 let isValidatedForCurrentTrace = false;
 let isVotedForCurrentTrace = false;
 
+const DIFFICULTY_LABELS = [
+  [0, 'Très facile 😌'],
+  [4, 'Facile'],
+  [8, 'Modérée'],
+  [12, 'Difficile'],
+  [16, 'Très difficile'],
+  [19, 'Extrême 🥵']
+];
+const APPRECIATION_LABELS = [
+  [0, 'Nulle 💀'],
+  [4, 'Bof bof'],
+  [8, 'Moyenne'],
+  [12, 'Sympa'],
+  [16, 'Très bien'],
+  [19, 'Top tracé ! 🔥']
+];
+
+function labelForValue(value, table) {
+  let label = table[0][1];
+  for (const [threshold, text] of table) {
+    if (value >= threshold) label = text; else break;
+  }
+  return label;
+}
+
+function updateVoteLabels() {
+  const diffVal = parseInt(document.getElementById('vote-diff').value, 10);
+  const apprVal = parseInt(document.getElementById('vote-appr').value, 10);
+  document.getElementById('vote-diff-label').textContent = labelForValue(diffVal, DIFFICULTY_LABELS);
+  document.getElementById('vote-appr-label').textContent = labelForValue(apprVal, APPRECIATION_LABELS);
+}
+
 function openVoteModal() {
   document.getElementById('vote-diff').value = 10;
   document.getElementById('vote-appr').value = 10;
   document.getElementById('vote-diff-val').textContent = '10';
   document.getElementById('vote-appr-val').textContent = '10';
   document.getElementById('vote-status').textContent = '';
+  updateVoteLabels();
   voteModal.style.display = 'flex';
 }
 
@@ -1283,8 +1318,14 @@ document.addEventListener('click', (e) => {
 });
 
 /* ---------- VOTES : formulaire ---------- */
-document.getElementById('vote-diff').addEventListener('input', e => { document.getElementById('vote-diff-val').textContent = e.target.value; });
-document.getElementById('vote-appr').addEventListener('input', e => { document.getElementById('vote-appr-val').textContent = e.target.value; });
+document.getElementById('vote-diff').addEventListener('input', e => {
+  document.getElementById('vote-diff-val').textContent = e.target.value;
+  document.getElementById('vote-diff-label').textContent = labelForValue(parseInt(e.target.value, 10), DIFFICULTY_LABELS);
+});
+document.getElementById('vote-appr').addEventListener('input', e => {
+  document.getElementById('vote-appr-val').textContent = e.target.value;
+  document.getElementById('vote-appr-label').textContent = labelForValue(parseInt(e.target.value, 10), APPRECIATION_LABELS);
+});
 
 document.getElementById('submit-vote').addEventListener('click', async () => {
   if (!currentUser || !currentTraceId || isVotedForCurrentTrace) return;
