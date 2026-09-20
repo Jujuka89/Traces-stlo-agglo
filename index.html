@@ -264,7 +264,12 @@
 <div id="parcours-view">
   <div class="content">
     <div class="page-title" style="margin-top:20px;">Parcours</div>
-    <div class="page-sub">Classés du mieux noté au moins bien noté.</div>
+    <div class="page-sub">Choisissez comment trier les parcours.</div>
+    <select id="parcours-sort" style="width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-family:'Inter',sans-serif; font-size:14px; margin-bottom:16px;">
+      <option value="rating">🏆 Meilleures notes</option>
+      <option value="easy">😌 Plus facile</option>
+      <option value="hard">🥵 Plus difficile</option>
+    </select>
     <div id="parcours-list"></div>
   </div>
 </div>
@@ -591,9 +596,11 @@ function renderHome() {
 function traceCardBody(t) {
   const ratingIcon = (t.avgAppreciation != null && t.avgAppreciation > 18) ? '❤️' : '⭐';
   const ratingLabel = (t.avgAppreciation != null) ? ratingIcon + ' ' + formatNote(t.avgAppreciation) : '⭐ --';
+  const diffLabel = '💪 ' + (t.avgDifficulte != null ? formatNote(t.avgDifficulte) : '--');
   const metaParts = [];
   if (t.subtitle) metaParts.push(t.subtitle);
   metaParts.push(ratingLabel);
+  metaParts.push(diffLabel);
   metaParts.push('👥 ' + t.participants);
   return '<div class="trace-card-info">' +
       '<span class="trace-card-name">' + t.name + '</span>' +
@@ -623,14 +630,29 @@ function renderTraceList() {
   renderParcoursRanking();
 }
 
+let parcoursSortMode = 'rating';
+
 function renderParcoursRanking() {
   const list = document.getElementById('parcours-list');
   if (!list) return;
+
   const ranked = [...TRACE_LIST].sort((a, b) => {
+    if (parcoursSortMode === 'easy') {
+      const av = (a.avgDifficulte != null) ? a.avgDifficulte : 21; // sans note, relégué en fin
+      const bv = (b.avgDifficulte != null) ? b.avgDifficulte : 21;
+      return av - bv; // le moins difficile d'abord
+    }
+    if (parcoursSortMode === 'hard') {
+      const av = (a.avgDifficulte != null) ? a.avgDifficulte : -1;
+      const bv = (b.avgDifficulte != null) ? b.avgDifficulte : -1;
+      return bv - av; // le plus difficile d'abord
+    }
+    // 'rating' par défaut : meilleure note d'abord
     const av = (a.avgAppreciation != null) ? a.avgAppreciation : -1;
     const bv = (b.avgAppreciation != null) ? b.avgAppreciation : -1;
     return bv - av;
   });
+
   list.innerHTML = '';
   ranked.forEach((t, i) => {
     const card = document.createElement('div');
@@ -640,6 +662,11 @@ function renderParcoursRanking() {
     list.appendChild(card);
   });
 }
+
+document.getElementById('parcours-sort').addEventListener('change', (e) => {
+  parcoursSortMode = e.target.value;
+  renderParcoursRanking();
+});
 
 let unsubHomeCounts = [];
 
@@ -664,18 +691,20 @@ let unsubRatings = null;
 function watchAllRatings() {
   if (unsubRatings) unsubRatings();
   unsubRatings = onSnapshot(collectionGroup(db, 'votes'), (snap) => {
-    const sums = {}; // id de parcours -> { sum, count }
+    const sums = {}; // id de parcours -> { apprSum, diffSum, count }
     snap.forEach(docSnap => {
       const traceId = docSnap.ref.parent.parent.id;
       const data = docSnap.data();
       if (typeof data.appreciation !== 'number') return;
-      if (!sums[traceId]) sums[traceId] = { sum: 0, count: 0 };
-      sums[traceId].sum += data.appreciation;
+      if (!sums[traceId]) sums[traceId] = { apprSum: 0, diffSum: 0, count: 0 };
+      sums[traceId].apprSum += data.appreciation;
+      if (typeof data.difficulte === 'number') sums[traceId].diffSum += data.difficulte;
       sums[traceId].count++;
     });
     TRACE_LIST.forEach(t => {
       const s = sums[t.id];
-      t.avgAppreciation = s ? (s.sum / s.count) : null;
+      t.avgAppreciation = s ? (s.apprSum / s.count) : null;
+      t.avgDifficulte = s ? (s.diffSum / s.count) : null;
       t.voteCount = s ? s.count : 0;
     });
     renderTraceList();
