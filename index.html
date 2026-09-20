@@ -1037,10 +1037,10 @@ let isVotedForCurrentTrace = false;
 
 const DIFFICULTY_LABELS = [
   [0, 'Très facile 😌'],
-  [4, 'Facile'],
-  [8, 'Modérée'],
-  [12, 'Difficile'],
-  [16, 'Très difficile'],
+  [4, 'Facile 🙂'],
+  [8, 'Modérée 😅'],
+  [12, 'Difficile 😓'],
+  [16, 'Très difficile 🥴'],
   [19, 'Extrême 🥵']
 ];
 const APPRECIATION_LABELS = [
@@ -1301,7 +1301,14 @@ function watchTraceData(traceId) {
     const apprIcon = (n && (aSum / n) > 18) ? '❤️' : '⭐';
     const ratingsEl = document.getElementById('map-ratings');
     if (ratingsEl) {
-      ratingsEl.textContent = apprIcon + ' ' + aAvg + '/20 · 💪 ' + dAvg + '/20 (' + n + ' vote' + (n > 1 ? 's' : '') + ')';
+      if (n) {
+        const dLabel = labelForValue(Math.round(dSum / n), DIFFICULTY_LABELS);
+        const aLabel = labelForValue(Math.round(aSum / n), APPRECIATION_LABELS);
+        ratingsEl.textContent = apprIcon + ' ' + aAvg + '/20 ' + aLabel + ' · 💪 ' + dAvg + '/20 ' + dLabel +
+          ' (' + n + ' vote' + (n > 1 ? 's' : '') + ')';
+      } else {
+        ratingsEl.textContent = apprIcon + ' --/20 · 💪 --/20 (0 vote)';
+      }
     }
   });
 }
