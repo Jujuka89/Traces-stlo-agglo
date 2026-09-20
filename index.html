@@ -149,10 +149,10 @@
 
   #gallery-view { display: none; }
   #gallery-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
-  .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
-  .gallery-item { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 3px; }
+  .gallery-item { background: var(--surface); border-radius: 0; overflow: hidden; }
   .gallery-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; cursor: pointer; display: block; }
-  .gallery-caption { padding: 8px; font-size: 12px; color: var(--text); line-height: 1.35; }
+  .gallery-caption { padding: 6px 8px; font-size: 11px; color: var(--text); line-height: 1.3; }
   .gallery-caption .gallery-participant { color: var(--text-dim); }
   .trace-card .leaderboard-rank { margin-right: 6px; }
   .leaderboard-row {
@@ -449,11 +449,20 @@ function watchLeaderboard() {
     snap.forEach(docSnap => {
       const uid = docSnap.id;
       const data = docSnap.data();
-      if (!counts[uid]) counts[uid] = { nom: data.nom || 'Anonyme', count: 0 };
+      if (!counts[uid]) counts[uid] = { nom: data.nom || 'Anonyme', count: 0, totalDuration: 0 };
       counts[uid].count++;
+      if (typeof data.dureeSecondes === 'number' && data.dureeSecondes > 0) {
+        counts[uid].totalDuration += data.dureeSecondes;
+      }
       if (data.nom) counts[uid].nom = data.nom;
     });
-    renderLeaderboard(Object.values(counts).sort((a, b) => b.count - a.count));
+    const ranking = Object.values(counts).sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count; // le plus de parcours d'abord
+      const aTime = a.totalDuration > 0 ? a.totalDuration : Infinity;
+      const bTime = b.totalDuration > 0 ? b.totalDuration : Infinity;
+      return aTime - bTime; // à égalité, le plus rapide devant
+    });
+    renderLeaderboard(ranking);
   }, (e) => {
     document.getElementById('leaderboard-list').innerHTML =
       '<div style="color:var(--brick);">Erreur de chargement du classement : ' + e.code + '</div>';
@@ -469,11 +478,12 @@ function renderLeaderboard(ranking) {
   const medals = ['🥇', '🥈', '🥉'];
   list.innerHTML = ranking.map((r, i) => {
     const rankLabel = medals[i] || (i + 1);
-    const label = r.count > 1 ? 'parcours' : 'parcours';
+    const countLabel = r.count + ' parcours';
+    const timeLabel = r.totalDuration > 0 ? ' · ' + formatDuration(r.totalDuration) : '';
     return '<div class="leaderboard-row">' +
       '<div class="leaderboard-rank">' + rankLabel + '</div>' +
       '<div class="leaderboard-name">' + r.nom + '</div>' +
-      '<div class="leaderboard-count">' + r.count + ' ' + label + '</div>' +
+      '<div class="leaderboard-count">' + countLabel + timeLabel + '</div>' +
     '</div>';
   }).join('');
 }
