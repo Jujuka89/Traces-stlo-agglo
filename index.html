@@ -335,25 +335,30 @@
         <div class="stat-label" id="votes-appreciation">Appréciation</div>
       </div>
     </div>
-
-    <div class="chart-card" style="margin-bottom:30px;">
-      <div style="font-weight:600; font-size:15px; margin-bottom:12px; color:var(--text);">Votez !</div>
-      <div class="msg" id="vote-lock-msg" style="display:none; color:var(--text-dim); margin-bottom:12px;">🔒 Validez votre parcours ci-dessus pour pouvoir le noter.</div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px; color:var(--text-dim);">Difficulté : <span id="vote-diff-val">10</span>/20</label>
-        <input type="range" min="0" max="20" value="10" id="vote-diff" style="width:100%; accent-color:#FF5A1F;">
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px; color:var(--text-dim);">Appréciation : <span id="vote-appr-val">10</span>/20</label>
-        <input type="range" min="0" max="20" value="10" id="vote-appr" style="width:100%; accent-color:#FF5A1F;">
-      </div>
-      <button class="btn btn-primary" id="submit-vote">Envoyer mon vote</button>
-      <div class="msg" id="vote-status"></div>
-    </div>
+    <div class="msg" id="my-vote-status" style="color:var(--text-dim); margin-bottom:30px;"></div>
   </div>
 </div>
 
 <div id="lightbox"><img id="lightbox-img" src=""></div>
+
+<div id="vote-modal" style="display:none; position:fixed; inset:0; background:rgba(8,9,11,0.85); z-index:3500; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+  <div style="background:var(--surface); border:1px solid var(--accent); border-radius:16px; padding:26px; max-width:380px; width:100%; box-shadow:0 20px 50px rgba(0,0,0,0.4);">
+    <div style="font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:700; margin-bottom:4px; color:var(--text);">Parcours validé ✓</div>
+    <div style="font-size:13px; color:var(--text-dim); margin-bottom:20px;">Notez ce parcours avant de continuer — une seule fois, impossible de revenir dessus ensuite.</div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:13px; color:var(--text-dim);">Difficulté : <span id="vote-diff-val">10</span>/20</label>
+      <input type="range" min="0" max="20" value="10" id="vote-diff" style="width:100%; accent-color:#FF5A1F;">
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="font-size:13px; color:var(--text-dim);">Appréciation : <span id="vote-appr-val">10</span>/20</label>
+      <input type="range" min="0" max="20" value="10" id="vote-appr" style="width:100%; accent-color:#FF5A1F;">
+    </div>
+    <button class="btn btn-primary" id="submit-vote" style="width:100%;">Valider mon vote</button>
+    <div class="msg" id="vote-status"></div>
+    <button class="back-btn" id="vote-later" style="width:100%; justify-content:center; margin-top:10px;">Plus tard</button>
+  </div>
+</div>
+
 
 <div id="new-traces-modal" style="display:none; position:fixed; inset:0; background:rgba(8,9,11,0.85); z-index:3500; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
   <div style="background:var(--surface); border:1px solid var(--accent); border-radius:16px; padding:28px; max-width:380px; width:100%; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.4);">
@@ -737,11 +742,12 @@ function openTrace(id) {
     (trace.subtitle || '') + ' <span id="map-ratings">⭐ -- · 💪 --</span>';
 
   resetValidationForm();
+  voteModal.style.display = 'none';
   initOrUpdateMap(trace);
   fillDetail(trace);
   drawChart(trace);
   watchTraceData(id);
-  loadMyValidation(id);
+  Promise.all([loadMyValidation(id), loadMyVote(id)]).then(() => maybeShowVoteModal());
   showApp();
 }
 
@@ -1029,37 +1035,60 @@ function updateValidateButtonState() {
 /* ---------- VALIDATION ---------- */
 const validateMsg = document.getElementById('validate-msg');
 const validateBtn = document.getElementById('validate-btn');
-const voteDiffInput = document.getElementById('vote-diff');
-const voteApprInput = document.getElementById('vote-appr');
-const submitVoteBtn = document.getElementById('submit-vote');
-const voteLockMsg = document.getElementById('vote-lock-msg');
+const voteModal = document.getElementById('vote-modal');
+const myVoteStatus = document.getElementById('my-vote-status');
 
-function setVoteLocked(locked) {
-  voteDiffInput.disabled = locked;
-  voteApprInput.disabled = locked;
-  submitVoteBtn.disabled = locked;
-  voteLockMsg.style.display = locked ? 'block' : 'none';
+let isValidatedForCurrentTrace = false;
+let isVotedForCurrentTrace = false;
+
+function openVoteModal() {
+  document.getElementById('vote-diff').value = 10;
+  document.getElementById('vote-appr').value = 10;
+  document.getElementById('vote-diff-val').textContent = '10';
+  document.getElementById('vote-appr-val').textContent = '10';
+  document.getElementById('vote-status').textContent = '';
+  voteModal.style.display = 'flex';
+}
+
+function maybeShowVoteModal() {
+  if (isValidatedForCurrentTrace && !isVotedForCurrentTrace) {
+    openVoteModal();
+  }
+}
+
+document.getElementById('vote-later').addEventListener('click', () => {
+  voteModal.style.display = 'none';
+});
+
+async function loadMyVote(traceId) {
+  if (!currentUser) { isVotedForCurrentTrace = false; return; }
+  try {
+    const snap = await getDoc(doc(db, 'traces', traceId, 'votes', currentUser.uid));
+    isVotedForCurrentTrace = snap.exists();
+  } catch (e) {
+    isVotedForCurrentTrace = false;
+  }
+  myVoteStatus.textContent = isVotedForCurrentTrace ? '✓ Vous avez déjà noté ce parcours.' : '';
 }
 
 async function loadMyValidation(traceId) {
   if (!currentUser) return;
-  setVoteLocked(true); // verrouillé par défaut le temps de la lecture
   try {
     const snap = await getDoc(doc(db, 'traces', traceId, 'validations', currentUser.uid));
     if (snap.exists()) {
+      isValidatedForCurrentTrace = true;
       setTrackValidated(true);
       validateBtn.textContent = 'Parcours validé ✓';
       validateBtn.disabled = true;
       document.getElementById('validate-lock-msg').style.display = 'none';
       validateMsg.className = 'msg ok';
       validateMsg.textContent = 'Votre tracé apparaît en vert.';
-      setVoteLocked(false);
     } else {
+      isValidatedForCurrentTrace = false;
       setTrackValidated(false);
       validateBtn.textContent = "J'ai validé mon parcours ✓";
       validateMsg.textContent = '';
       updateValidateButtonState();
-      setVoteLocked(true);
     }
   } catch (e) {
     validateMsg.className = 'msg err'; validateMsg.textContent = 'Lecture impossible : ' + e.code;
@@ -1084,7 +1113,8 @@ async function performValidation(source, durationSeconds) {
     validateBtn.disabled = true;
     validateMsg.className = 'msg ok';
     validateMsg.textContent = source === 'gpx' ? 'Validé automatiquement via votre trace GPX !' : 'Validation enregistrée !';
-    setVoteLocked(false);
+    isValidatedForCurrentTrace = true;
+    maybeShowVoteModal();
   } catch (e) {
     validateMsg.className = 'msg err'; validateMsg.textContent = 'Erreur : ' + e.code;
   }
@@ -1267,9 +1297,11 @@ document.getElementById('vote-diff').addEventListener('input', e => { document.g
 document.getElementById('vote-appr').addEventListener('input', e => { document.getElementById('vote-appr-val').textContent = e.target.value; });
 
 document.getElementById('submit-vote').addEventListener('click', async () => {
-  if (!currentUser || !currentTraceId) return;
+  if (!currentUser || !currentTraceId || isVotedForCurrentTrace) return;
   const status = document.getElementById('vote-status');
+  const btn = document.getElementById('submit-vote');
   status.className = 'msg'; status.textContent = 'Envoi…';
+  btn.disabled = true;
   try {
     await setDoc(doc(db, 'traces', currentTraceId, 'votes', currentUser.uid), {
       nom: currentUser.displayName || currentUser.email,
@@ -1277,9 +1309,13 @@ document.getElementById('submit-vote').addEventListener('click', async () => {
       appreciation: parseInt(document.getElementById('vote-appr').value, 10),
       date: serverTimestamp()
     });
+    isVotedForCurrentTrace = true;
     status.className = 'msg ok'; status.textContent = 'Merci pour votre vote !';
+    myVoteStatus.textContent = '✓ Vous avez déjà noté ce parcours.';
+    setTimeout(() => { voteModal.style.display = 'none'; }, 900);
   } catch (e) {
     status.className = 'msg err'; status.textContent = 'Erreur : ' + e.code;
+    btn.disabled = false;
   }
 });
 </script>
