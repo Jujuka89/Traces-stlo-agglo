@@ -53,9 +53,9 @@
     position: fixed; bottom: 0; left: 0; right: 0;
     background: rgba(16,17,20,0.85); backdrop-filter: blur(10px);
     border-top: 1px solid var(--line);
-    align-items: center; justify-content: center; gap: 16px;
-    padding: 13px 18px; box-sizing: border-box; z-index: 2200;
-    font-size: 13px;
+    align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap;
+    padding: 10px 18px; box-sizing: border-box; z-index: 2200;
+    font-size: 12px;
   }
   #site-footer a { color: var(--text-dim); text-decoration: none; font-weight: 500; cursor: pointer; transition: color 0.15s ease; }
   #site-footer a:hover { color: var(--accent); }
@@ -226,6 +226,8 @@
 
 <footer id="site-footer">
   <span class="nav-user" id="header-user-label"></span>
+  <span class="nav-user">👀 <span id="footer-visits">--</span> visites</span>
+  <span class="nav-user">🚵 <span id="footer-participants">--</span> participants</span>
   <a href="#" id="nav-logout-link">Déconnexion</a>
 </footer>
 
@@ -369,7 +371,7 @@ import {
   signOut, onAuthStateChanged, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, doc, setDoc, getDoc, collection, collectionGroup, onSnapshot, serverTimestamp
+  getFirestore, doc, setDoc, getDoc, collection, collectionGroup, onSnapshot, serverTimestamp, increment
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -460,6 +462,8 @@ function watchLeaderboard() {
       return aTime - bTime; // à égalité, le plus rapide devant
     });
     renderLeaderboard(ranking);
+    const footerParticipants = document.getElementById('footer-participants');
+    if (footerParticipants) footerParticipants.textContent = Object.keys(counts).length;
   }, (e) => {
     document.getElementById('leaderboard-list').innerHTML =
       '<div style="color:var(--brick);">Erreur de chargement du classement : ' + e.code + '</div>';
@@ -523,6 +527,30 @@ function renderGallery(items) {
       '<div class="gallery-caption">' + it.traceName + '<br><span class="gallery-participant">' + it.nom + '</span></div>' +
     '</div>'
   ).join('');
+}
+
+/* ---------- COMPTEUR DE VISITES ----------
+   Non critique : toute erreur ici est capturée et ignorée, ça ne doit
+   jamais empêcher le reste du site de fonctionner. */
+let unsubSiteStats = null;
+
+function bumpVisitCounter() {
+  try {
+    setDoc(doc(db, 'stats', 'site'), { visits: increment(1) }, { merge: true }).catch(() => {});
+  } catch (e) { /* ignoré */ }
+}
+
+function watchSiteStats() {
+  try {
+    if (unsubSiteStats) unsubSiteStats();
+    unsubSiteStats = onSnapshot(doc(db, 'stats', 'site'), (snap) => {
+      try {
+        const visits = (snap.exists() && typeof snap.data().visits === 'number') ? snap.data().visits : 0;
+        const el = document.getElementById('footer-visits');
+        if (el) el.textContent = visits;
+      } catch (e) { /* ignoré */ }
+    }, () => { /* erreur de lecture ignorée, le compteur reste sur -- */ });
+  } catch (e) { /* ignoré */ }
 }
 
 /* ---------- COMPTEUR DE VISITES (retiré, à refaire plus tard) ---------- */
@@ -916,12 +944,19 @@ onAuthStateChanged(auth, async (user) => {
     } catch (e) {
       loadingScreen.textContent = 'Erreur de chargement des parcours : ' + e.message;
     }
+    // Compteur de visites : non critique, placé après coup et isolé,
+    // une erreur ici ne doit jamais renvoyer vers l'écran de connexion.
+    try {
+      watchSiteStats();
+      bumpVisitCounter();
+    } catch (e) { /* ignoré */ }
   } else {
     if (unsubValidations) unsubValidations();
     if (unsubVotes) unsubVotes();
     if (unsubLeaderboard) unsubLeaderboard();
     if (unsubGallery) unsubGallery();
     if (unsubRatings) unsubRatings();
+    if (unsubSiteStats) unsubSiteStats();
     unsubHomeCounts.forEach(u => u());
     unsubHomeCounts = [];
     loadingScreen.style.display = 'none';
