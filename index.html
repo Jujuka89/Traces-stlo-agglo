@@ -294,12 +294,13 @@
 
     <div class="stats-grid" id="stats-grid" style="margin-top:20px;"></div>
 
-    <a class="btn-outline" id="gpx-download" download>⬇ Télécharger le GPX</a>
-
     <div class="section-title">Profil altimétrique</div>
     <div class="chart-card">
-      <svg id="elev-chart" viewBox="0 0 600 220" style="width:100%; height:auto;"></svg>
+      <svg id="elev-chart" viewBox="0 0 600 150" style="width:100%; height:auto;"></svg>
+      <div id="elev-legend" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; font-size:11px; color:var(--text-dim);"></div>
     </div>
+
+    <a class="btn-outline" id="gpx-download" download style="margin-top:12px;">⬇ Télécharger le GPX</a>
 
     <div class="section-title">Valider mon parcours</div>
     <div class="chart-card">
@@ -797,27 +798,60 @@ function fillDetail(trace) {
   });
 }
 
+function gradeColor(slopePct) {
+  if (slopePct <= -5) return '#1E5FA8';   // forte descente
+  if (slopePct < 0) return '#5B9BD5';     // descente
+  if (slopePct < 3) return '#3DDC84';     // plat / montée douce
+  if (slopePct < 6) return '#F0B429';     // montée modérée
+  if (slopePct < 10) return '#FF8659';    // montée soutenue
+  return '#E5484D';                       // montée très raide
+}
+
 function drawChart(trace) {
   const svg = document.getElementById('elev-chart');
   const dist = trace.dist_km, eles = trace.eles;
-  const W = 600, H = 220, padL = 40, padR = 10, padT = 10, padB = 30;
+  const W = 600, H = 150, padL = 38, padR = 10, padT = 10, padB = 24;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const maxD = dist[dist.length - 1];
   const minE = Math.min(...eles), maxE = Math.max(...eles);
   const eRange = (maxE - minE) || 1;
   const x = d => padL + (d / maxD) * plotW;
   const y = e => padT + plotH - ((e - minE) / eRange) * plotH;
-  let path = 'M ' + x(dist[0]) + ' ' + y(eles[0]);
-  for (let i = 1; i < dist.length; i++) path += ' L ' + x(dist[i]) + ' ' + y(eles[i]);
-  const area = path + ' L ' + x(maxD) + ' ' + (padT + plotH) + ' L ' + x(0) + ' ' + (padT + plotH) + ' Z';
+
+  let segments = '';
+  for (let i = 1; i < dist.length; i++) {
+    const horizM = (dist[i] - dist[i - 1]) * 1000;
+    const slopePct = horizM > 0 ? ((eles[i] - eles[i - 1]) / horizM) * 100 : 0;
+    const color = gradeColor(slopePct);
+    segments += '<line x1="' + x(dist[i - 1]) + '" y1="' + y(eles[i - 1]) +
+      '" x2="' + x(dist[i]) + '" y2="' + y(eles[i]) +
+      '" stroke="' + color + '" stroke-width="3" stroke-linecap="round"></line>';
+  }
+
   svg.innerHTML =
-    '<path d="' + area + '" fill="#FF8659" opacity="0.15"></path>' +
-    '<path d="' + path + '" fill="none" stroke="#FF5A1F" stroke-width="2"></path>' +
+    segments +
     '<line x1="' + padL + '" y1="' + (padT + plotH) + '" x2="' + (padL + plotW) + '" y2="' + (padT + plotH) + '" stroke="#3A3C44"></line>' +
     '<text x="4" y="' + (y(maxE) + 4) + '" font-size="10" fill="#9A9CA5">' + Math.round(maxE) + 'm</text>' +
     '<text x="4" y="' + (y(minE) + 4) + '" font-size="10" fill="#9A9CA5">' + Math.round(minE) + 'm</text>' +
-    '<text x="' + padL + '" y="' + (H - 8) + '" font-size="10" fill="#9A9CA5">0 km</text>' +
-    '<text x="' + (padL + plotW - 34) + '" y="' + (H - 8) + '" font-size="10" fill="#9A9CA5">' + maxD.toFixed(1) + ' km</text>';
+    '<text x="' + padL + '" y="' + (H - 6) + '" font-size="10" fill="#9A9CA5">0 km</text>' +
+    '<text x="' + (padL + plotW - 34) + '" y="' + (H - 6) + '" font-size="10" fill="#9A9CA5">' + maxD.toFixed(1) + ' km</text>';
+
+  const legend = document.getElementById('elev-legend');
+  if (legend) {
+    const items = [
+      ['#5B9BD5', 'Descente'],
+      ['#3DDC84', 'Plat / douce'],
+      ['#F0B429', 'Modérée (3-6%)'],
+      ['#FF8659', 'Soutenue (6-10%)'],
+      ['#E5484D', 'Raide (10%+)']
+    ];
+    legend.innerHTML = items.map(([color, label]) =>
+      '<span style="display:inline-flex; align-items:center; gap:5px;">' +
+        '<span style="width:9px; height:9px; border-radius:50%; background:' + color + '; display:inline-block;"></span>' +
+        label +
+      '</span>'
+    ).join('');
+  }
 }
 
 /* ---------- GATE : CONNEXION ---------- */
