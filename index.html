@@ -324,17 +324,6 @@
       </table>
     </div>
 
-    <div class="section-title">Notes de la communauté</div>
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-value" id="rating-difficulte">--</div>
-        <div class="stat-label" id="votes-difficulte">Difficulté</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="rating-appreciation">--</div>
-        <div class="stat-label" id="votes-appreciation">Appréciation</div>
-      </div>
-    </div>
     <div class="msg" id="my-vote-status" style="color:var(--text-dim); margin-bottom:30px;"></div>
   </div>
 </div>
@@ -739,10 +728,13 @@ function openTrace(id) {
 
   document.getElementById('app-trace-title').textContent = trace.name;
   document.getElementById('app-trace-sub').innerHTML =
-    (trace.subtitle || '') + ' <span id="map-ratings">⭐ -- · 💪 --</span>';
+    (trace.subtitle || '') + ' <span id="map-ratings">⭐ --/20 · 💪 --/20</span>';
 
   resetValidationForm();
   voteModal.style.display = 'none';
+  isValidatedForCurrentTrace = false;
+  isVotedForCurrentTrace = false;
+  myVoteStatus.textContent = '';
   initOrUpdateMap(trace);
   fillDetail(trace);
   drawChart(trace);
@@ -1273,11 +1265,9 @@ function watchTraceData(traceId) {
     const aAvg = n ? formatNote(aSum / n) : '--';
     const apprIcon = (n && (aSum / n) > 18) ? '❤️' : '⭐';
     const ratingsEl = document.getElementById('map-ratings');
-    if (ratingsEl) ratingsEl.textContent = apprIcon + ' ' + aAvg + ' · 💪 ' + dAvg;
-    document.getElementById('rating-difficulte').textContent = dAvg + '/20';
-    document.getElementById('rating-appreciation').textContent = aAvg + '/20';
-    document.getElementById('votes-difficulte').textContent = 'Difficulté (' + n + ' vote' + (n > 1 ? 's' : '') + ')';
-    document.getElementById('votes-appreciation').textContent = 'Appréciation (' + n + ' vote' + (n > 1 ? 's' : '') + ')';
+    if (ratingsEl) {
+      ratingsEl.textContent = apprIcon + ' ' + aAvg + '/20 · 💪 ' + dAvg + '/20 (' + n + ' vote' + (n > 1 ? 's' : '') + ')';
+    }
   });
 }
 
