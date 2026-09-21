@@ -159,15 +159,16 @@
   .gallery-caption .gallery-participant { color: var(--text-dim); }
   .trace-card .leaderboard-rank { margin-right: 6px; }
   .leaderboard-row {
-    display: flex; align-items: center; gap: 14px; background: var(--surface);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface);
     border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px;
     cursor: pointer; transition: border-color 0.15s ease;
   }
   .leaderboard-row:hover { border-color: var(--accent); }
   .leaderboard-row:nth-child(1) { border-color: var(--accent); background: linear-gradient(135deg, var(--accent-soft), var(--surface)); }
   .leaderboard-rank { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 18px; color: var(--accent); width: 30px; text-align: center; flex-shrink: 0; }
-  .leaderboard-name { flex: 1; font-weight: 600; color: var(--text); }
+  .leaderboard-name { flex: 1; min-width: 90px; font-weight: 600; color: var(--text); }
   .leaderboard-count { font-family: "Space Grotesk", sans-serif; font-weight: 700; color: var(--text); white-space: nowrap; }
+  .leaderboard-dist { font-family: "Space Grotesk", sans-serif; font-weight: 700; color: var(--text-dim); white-space: nowrap; font-size: 13px; }
 
   .content { max-width: 660px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
   .page-title { font-family: "Space Grotesk", sans-serif; font-size: 26px; font-weight: 700; margin: 0 0 5px 0; color: var(--text); letter-spacing: -0.01em; }
@@ -480,9 +481,11 @@ function watchLeaderboard() {
       const data = docSnap.data();
       const nom = data.nom || 'Anonyme';
 
-      if (!counts[uid]) counts[uid] = { uid, nom, count: 0 };
+      if (!counts[uid]) counts[uid] = { uid, nom, count: 0, totalDist: 0 };
       counts[uid].count++;
       if (data.nom) counts[uid].nom = nom;
+      const trace = TRACES[traceId];
+      if (trace) counts[uid].totalDist += trace.stats.distance_km;
 
       if (!index[uid]) index[uid] = { nom, entries: [] };
       if (data.nom) index[uid].nom = nom;
@@ -519,7 +522,8 @@ function renderLeaderboard(ranking) {
     row.innerHTML =
       '<div class="leaderboard-rank">' + rankLabel + '</div>' +
       '<div class="leaderboard-name">' + r.nom + '</div>' +
-      '<div class="leaderboard-count">' + r.count + ' parcours</div>';
+      '<div class="leaderboard-count">' + r.count + ' parcours</div>' +
+      '<div class="leaderboard-dist">' + r.totalDist.toFixed(1) + ' km</div>';
     row.addEventListener('click', () => openParticipant(r.uid));
     list.appendChild(row);
   });
