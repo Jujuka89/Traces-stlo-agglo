@@ -308,6 +308,9 @@
 
     <div class="stats-grid" id="participant-stats"></div>
 
+    <div class="section-title">Détail des points</div>
+    <div class="chart-card" id="participant-points-detail" style="font-size:13px; color:var(--text-dim); line-height:1.9; margin-bottom:6px;"></div>
+
     <div class="section-title">Parcours réalisés</div>
     <div id="participant-map-wrap" class="chart-card" style="padding:0; overflow:hidden;"><div id="participant-map"></div></div>
     <div class="page-sub" style="margin-top:8px; margin-bottom:20px;">Touchez un tracé pour ouvrir sa fiche.</div>
@@ -513,7 +516,8 @@ function watchLeaderboard() {
         traceId: traceId,
         date: data.date || null,
         dureeSecondes: (typeof data.dureeSecondes === 'number') ? data.dureeSecondes : null,
-        photo: data.photo || null
+        photo: data.photo || null,
+        viaGpx: !!data.viaGpx
       });
     });
     participantsIndex = index;
@@ -856,6 +860,7 @@ function openParticipant(uid) {
   document.getElementById('participant-name').textContent = p.nom;
 
   let totalDist = 0, totalGain = 0, totalDuration = 0;
+  let photoCount = 0, gpxCount = 0;
   const photos = [];
   const rows = p.entries.map(e => {
     const trace = TRACES[e.traceId];
@@ -864,7 +869,8 @@ function openParticipant(uid) {
       totalGain += trace.stats.gain_m;
     }
     if (e.dureeSecondes) totalDuration += e.dureeSecondes;
-    if (e.photo) photos.push({ photo: e.photo, traceName: trace ? trace.name : e.traceId });
+    if (e.photo) { photoCount++; photos.push({ photo: e.photo, traceName: trace ? trace.name : e.traceId }); }
+    if (e.viaGpx) gpxCount++;
     return {
       traceId: e.traceId,
       name: trace ? trace.name : e.traceId,
@@ -873,12 +879,23 @@ function openParticipant(uid) {
     };
   });
 
+  const parcoursPts = p.entries.length * 20;
+  const photoPts = photoCount * 5;
+  const gpxPts = gpxCount * 5;
+  const totalPts = parcoursPts + photoPts + gpxPts;
+
   document.getElementById('participant-stats').innerHTML = [
     { value: p.entries.length, label: 'Parcours réalisés' },
+    { value: totalPts + ' pts', label: 'Points gagnés' },
     { value: totalDist.toFixed(1) + ' km', label: 'Distance cumulée' },
     { value: '+' + Math.round(totalGain) + ' m', label: 'Dénivelé cumulé' },
     { value: totalDuration ? formatDuration(totalDuration) : '--', label: 'Temps cumulé' }
   ].map(s => '<div class="stat-card"><div class="stat-value">' + s.value + '</div><div class="stat-label">' + s.label + '</div></div>').join('');
+
+  document.getElementById('participant-points-detail').innerHTML =
+    '<div>🏁 ' + p.entries.length + ' parcours × 20 pts = <strong style="color:var(--text);">' + parcoursPts + ' pts</strong></div>' +
+    '<div>📷 ' + photoCount + ' photo' + (photoCount > 1 ? 's' : '') + ' × 5 pts = <strong style="color:var(--text);">' + photoPts + ' pts</strong></div>' +
+    '<div>🛰️ ' + gpxCount + ' trace' + (gpxCount > 1 ? 's' : '') + ' GPX × 5 pts = <strong style="color:var(--text);">' + gpxPts + ' pts</strong></div>';
 
   const galleryTitle = document.getElementById('participant-gallery-title');
   const galleryEl = document.getElementById('participant-gallery');
