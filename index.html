@@ -168,9 +168,7 @@
   .leaderboard-row {
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface);
     border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px;
-    cursor: pointer; transition: border-color 0.15s ease;
   }
-  .leaderboard-row:hover { border-color: var(--accent); }
   .leaderboard-row:nth-child(1) { border-color: var(--accent); background: linear-gradient(135deg, var(--accent-soft), var(--surface)); }
   .leaderboard-rank { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 18px; color: var(--accent); width: 30px; text-align: center; flex-shrink: 0; }
   .leaderboard-name { flex: 1; min-width: 90px; font-weight: 600; color: var(--text); }
@@ -238,7 +236,7 @@
 </header>
 
 <footer id="site-footer">
-  <span class="nav-user" id="header-user-label"></span>
+  <span class="nav-user" id="header-user-label" style="cursor:pointer; text-decoration:underline; text-decoration-style:dotted;" title="Mon profil"></span>
   <span class="nav-user">👀 <span id="footer-visits">--</span> visites</span>
   <span class="nav-user">🚵 <span id="footer-participants">--</span> participants</span>
   <a href="#" id="nav-logout-link">Déconnexion</a>
@@ -290,16 +288,23 @@
 <div id="leaderboard-view">
   <div class="content">
     <div class="page-title" style="margin-top:20px;">Classement</div>
-    <div class="page-sub">Les participants ayant validé le plus de parcours différents. Touchez un nom pour voir ses stats.</div>
+    <div class="page-sub">Choisissez comment classer les participants.</div>
+    <select id="leaderboard-sort" style="width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-family:'Inter',sans-serif; font-size:14px; margin-bottom:8px;">
+      <option value="count">🏁 Parcours effectués</option>
+      <option value="points">⭐ Points</option>
+    </select>
+    <div id="leaderboard-points-legend" style="display:none; font-size:12px; color:var(--text-dim); margin:-4px 0 16px;">
+      20 pts par parcours validé · +5 pts si photo envoyée · +5 pts si trace GPX envoyée
+    </div>
     <div id="leaderboard-list"><div style="color:var(--moss);">Chargement…</div></div>
   </div>
 </div>
 
 <div id="participant-view">
   <div class="content">
-    <button class="back-btn" id="back-to-leaderboard">← Classement</button>
-    <div class="page-title" style="margin-top:16px;" id="participant-name">…</div>
-    <div class="page-sub">Statistiques du participant</div>
+    <button class="back-btn" id="back-to-leaderboard">← Retour</button>
+    <div class="page-title" style="margin-top:16px;" id="participant-name">Mon profil</div>
+    <div class="page-sub">Vos statistiques personnelles — visibles par vous uniquement.</div>
 
     <div class="stats-grid" id="participant-stats"></div>
 
@@ -477,6 +482,8 @@ const loadingScreen = document.getElementById('loading-screen');
 
 let unsubLeaderboard = null;
 let participantsIndex = {};
+let lastLeaderboardData = [];
+let leaderboardSortMode = 'count';
 
 function watchLeaderboard() {
   if (unsubLeaderboard) unsubLeaderboard();
@@ -489,11 +496,16 @@ function watchLeaderboard() {
       const data = docSnap.data();
       const nom = data.nom || 'Anonyme';
 
-      if (!counts[uid]) counts[uid] = { uid, nom, count: 0, totalDist: 0 };
+      if (!counts[uid]) counts[uid] = { uid, nom, count: 0, totalDist: 0, points: 0 };
       counts[uid].count++;
       if (data.nom) counts[uid].nom = nom;
       const trace = TRACES[traceId];
       if (trace) counts[uid].totalDist += trace.stats.distance_km;
+
+      let pts = 20; // parcours validé
+      if (data.photo) pts += 5;   // photo envoyée
+      if (data.viaGpx) pts += 5;  // trace GPX envoyée et reconnue
+      counts[uid].points += pts;
 
       if (!index[uid]) index[uid] = { nom, entries: [] };
       if (data.nom) index[uid].nom = nom;
@@ -505,8 +517,8 @@ function watchLeaderboard() {
       });
     });
     participantsIndex = index;
-    const ranking = Object.values(counts).sort((a, b) => b.count - a.count);
-    renderLeaderboard(ranking);
+    lastLeaderboardData = Object.values(counts);
+    renderLeaderboard();
     const footerParticipants = document.getElementById('footer-participants');
     if (footerParticipants) footerParticipants.textContent = Object.keys(counts).length;
   }, (e) => {
@@ -515,24 +527,31 @@ function watchLeaderboard() {
   });
 }
 
-function renderLeaderboard(ranking) {
+function renderLeaderboard() {
   const list = document.getElementById('leaderboard-list');
-  if (!ranking.length) {
+  const legend = document.getElementById('leaderboard-points-legend');
+  if (legend) legend.style.display = (leaderboardSortMode === 'points') ? 'block' : 'none';
+
+  if (!lastLeaderboardData.length) {
     list.innerHTML = '<div style="color:var(--moss);">Aucune validation pour le moment.</div>';
     return;
   }
+  const sorted = [...lastLeaderboardData].sort((a, b) =>
+    leaderboardSortMode === 'points' ? (b.points - a.points) : (b.count - a.count)
+  );
   const medals = ['🥇', '🥈', '🥉'];
   list.innerHTML = '';
-  ranking.forEach((r, i) => {
+  sorted.forEach((r, i) => {
     const rankLabel = medals[i] || (i + 1);
     const row = document.createElement('div');
     row.className = 'leaderboard-row';
+    const primaryHtml = (leaderboardSortMode === 'points')
+      ? '<div class="leaderboard-count">' + r.points + ' pts</div><div class="leaderboard-dist">' + r.count + ' parcours</div>'
+      : '<div class="leaderboard-count">' + r.count + ' parcours</div><div class="leaderboard-dist">' + r.totalDist.toFixed(1) + ' km</div>';
     row.innerHTML =
       '<div class="leaderboard-rank">' + rankLabel + '</div>' +
       '<div class="leaderboard-name">' + r.nom + '</div>' +
-      '<div class="leaderboard-count">' + r.count + ' parcours</div>' +
-      '<div class="leaderboard-dist">' + r.totalDist.toFixed(1) + ' km</div>';
-    row.addEventListener('click', () => openParticipant(r.uid));
+      primaryHtml;
     list.appendChild(row);
   });
 }
@@ -711,6 +730,11 @@ document.getElementById('parcours-sort').addEventListener('change', (e) => {
   renderParcoursRanking();
 });
 
+document.getElementById('leaderboard-sort').addEventListener('change', (e) => {
+  leaderboardSortMode = e.target.value;
+  renderLeaderboard();
+});
+
 let unsubHomeCounts = [];
 
 function watchAllParticipantCounts() {
@@ -822,7 +846,11 @@ function showParticipant() {
 }
 
 function openParticipant(uid) {
-  const p = participantsIndex[uid];
+  let p = participantsIndex[uid];
+  if (!p && currentUser && uid === currentUser.uid) {
+    // Pas encore de parcours validé : on affiche quand même un profil vide plutôt que rien.
+    p = { nom: currentUser.displayName || currentUser.email, entries: [] };
+  }
   if (!p) return;
 
   document.getElementById('participant-name').textContent = p.nom;
@@ -910,7 +938,10 @@ document.getElementById('nav-parcours-link').addEventListener('click', (e) => { 
 document.getElementById('nav-leaderboard-link').addEventListener('click', (e) => { e.preventDefault(); showLeaderboard(); });
 document.getElementById('nav-gallery-link').addEventListener('click', (e) => { e.preventDefault(); showGallery(); });
 document.getElementById('back-to-home').addEventListener('click', showHome);
-document.getElementById('back-to-leaderboard').addEventListener('click', showLeaderboard);
+document.getElementById('back-to-leaderboard').addEventListener('click', showHome);
+document.getElementById('header-user-label').addEventListener('click', () => {
+  if (currentUser) openParticipant(currentUser.uid);
+});
 
 /* ---------- OUVERTURE D'UN PARCOURS ---------- */
 function openTrace(id) {
