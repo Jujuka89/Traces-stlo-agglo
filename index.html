@@ -180,15 +180,9 @@
   .home-grid { display: block; }
   .home-col-todo, .home-col-activity { margin-top: 28px; }
 
-  @media (min-width: 980px) {
-    #home-view .content { max-width: 1240px; }
-    .home-grid {
-      display: grid;
-      grid-template-columns: 1.3fr 1fr 1fr;
-      gap: 28px;
-      align-items: start;
-    }
-    .home-col-todo, .home-col-activity { margin-top: 0; }
+  @media (min-width: 900px) {
+    #home-view .content { max-width: 820px; }
+    #home-map { height: 520px; }
   }
 
   .activity-row {
@@ -300,7 +294,7 @@
 
       <div class="home-col-activity">
         <div class="page-title" style="margin-top:0;">Derniers participants</div>
-        <div class="page-sub">Les 10 dernières validations de parcours.</div>
+        <div class="page-sub">Les 5 dernières validations de parcours.</div>
         <div id="recent-activity-list"></div>
       </div>
     </div>
@@ -564,7 +558,7 @@ function watchLeaderboard() {
     lastLeaderboardData = Object.values(counts);
     renderLeaderboard();
 
-    const recent = allEntries.sort((a, b) => b.seconds - a.seconds).slice(0, 10);
+    const recent = allEntries.sort((a, b) => b.seconds - a.seconds).slice(0, 5);
     renderRecentActivity(recent);
 
     const footerParticipants = document.getElementById('footer-participants');
