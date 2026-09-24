@@ -176,6 +176,28 @@
   .leaderboard-dist { font-family: "Space Grotesk", sans-serif; font-weight: 700; color: var(--text-dim); white-space: nowrap; font-size: 13px; }
 
   .content { max-width: 660px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
+
+  .home-grid { display: block; }
+  .home-col-todo, .home-col-activity { margin-top: 28px; }
+
+  @media (min-width: 980px) {
+    #home-view .content { max-width: 1240px; }
+    .home-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr 1fr;
+      gap: 28px;
+      align-items: start;
+    }
+    .home-col-todo, .home-col-activity { margin-top: 0; }
+  }
+
+  .activity-row {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 8px; font-size: 12.5px;
+  }
+  .activity-row .activity-name { font-weight: 600; color: var(--text); }
+  .activity-row .activity-trace { color: var(--accent); }
+  .activity-row .activity-date { color: var(--text-dim); font-size: 11px; display: block; margin-top: 2px; }
   .page-title { font-family: "Space Grotesk", sans-serif; font-size: 26px; font-weight: 700; margin: 0 0 5px 0; color: var(--text); letter-spacing: -0.01em; }
   .page-sub { color: var(--text-dim); font-size: 14px; margin-bottom: 22px; }
 
@@ -259,16 +281,29 @@
 
 <div id="home-view">
   <div class="content">
-    <div class="hero-panel">
-      <p>Participez au challenge VTT des communes de l'agglo de Saint-Lô.</p>
-      <p class="hero-stat">🚵 Plus de 60 tracés VTT pour tous niveaux !</p>
-      <p>Objectif : se faire plaisir et découvrir les différents villages et leurs paysages.</p>
-      <p class="hero-note">Pas de classement « officiel », juste pour le fun et l'aventure.</p>
+    <div class="home-grid">
+      <div class="home-col-main">
+        <div class="hero-panel">
+          <p>Participez au challenge VTT des communes de l'agglo de Saint-Lô.</p>
+          <p class="hero-stat">🚵 Plus de 60 tracés VTT pour tous niveaux !</p>
+          <p>Objectif : se faire plaisir et découvrir les différents villages et leurs paysages.</p>
+          <p class="hero-note">Pas de classement « officiel », juste pour le fun et l'aventure.</p>
+        </div>
+        <div id="home-map-wrap" class="chart-card" style="padding:0; overflow:hidden;"><div id="home-map"></div></div>
+      </div>
+
+      <div class="home-col-todo">
+        <div class="page-title" style="margin-top:0;">Parcours à réaliser</div>
+        <div class="page-sub">Choisissez un tracé pour consulter la carte, valider votre passage et donner votre avis.</div>
+        <div id="trace-list"></div>
+      </div>
+
+      <div class="home-col-activity">
+        <div class="page-title" style="margin-top:0;">Derniers participants</div>
+        <div class="page-sub">Les 10 dernières validations de parcours.</div>
+        <div id="recent-activity-list"></div>
+      </div>
     </div>
-    <div id="home-map-wrap" class="chart-card" style="padding:0; overflow:hidden;"><div id="home-map"></div></div>
-    <div class="page-title" style="margin-top:20px;">Parcours à réaliser</div>
-    <div class="page-sub">Choisissez un tracé pour consulter la carte, valider votre passage et donner votre avis.</div>
-    <div id="trace-list"></div>
   </div>
 </div>
 
@@ -493,6 +528,7 @@ function watchLeaderboard() {
   unsubLeaderboard = onSnapshot(collectionGroup(db, 'validations'), (snap) => {
     const counts = {};
     const index = {};
+    const allEntries = [];
     snap.forEach(docSnap => {
       const uid = docSnap.id;
       const traceId = docSnap.ref.parent.parent.id;
@@ -519,16 +555,42 @@ function watchLeaderboard() {
         photo: data.photo || null,
         viaGpx: !!data.viaGpx
       });
+
+      if (data.date && data.date.seconds) {
+        allEntries.push({ nom, traceId, seconds: data.date.seconds });
+      }
     });
     participantsIndex = index;
     lastLeaderboardData = Object.values(counts);
     renderLeaderboard();
+
+    const recent = allEntries.sort((a, b) => b.seconds - a.seconds).slice(0, 10);
+    renderRecentActivity(recent);
+
     const footerParticipants = document.getElementById('footer-participants');
     if (footerParticipants) footerParticipants.textContent = Object.keys(counts).length;
   }, (e) => {
     document.getElementById('leaderboard-list').innerHTML =
       '<div style="color:var(--brick);">Erreur de chargement du classement : ' + e.code + '</div>';
   });
+}
+
+function renderRecentActivity(entries) {
+  const el = document.getElementById('recent-activity-list');
+  if (!el) return;
+  if (!entries.length) {
+    el.innerHTML = '<div style="color:var(--text-dim); font-size:13px;">Aucune activité pour le moment.</div>';
+    return;
+  }
+  el.innerHTML = entries.map(e => {
+    const trace = TRACES[e.traceId];
+    const traceName = trace ? trace.name : e.traceId;
+    const dateStr = new Date(e.seconds * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return '<div class="activity-row">' +
+      '<span class="activity-name">' + e.nom + '</span> a réalisé <span class="activity-trace">' + traceName + '</span>' +
+      '<span class="activity-date">' + dateStr + '</span>' +
+    '</div>';
+  }).join('');
 }
 
 function renderLeaderboard() {
