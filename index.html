@@ -713,11 +713,6 @@ function renderHome() {
     const poly = L.polygon(fullTrace.coords, { color: '#FF5A1F', weight: 3, fillColor: '#FF8659', fillOpacity: 0.3 }).addTo(homeMap);
     t._polygon = poly;
     poly.bindTooltip(t.name, { sticky: true, direction: 'top', className: 'trace-tooltip' });
-    const popupHtml =
-      '<div class="popup-name">' + t.name + '</div>' +
-      '<div class="popup-dist">' + t.distance_km + ' km' + (t.subtitle ? ' · ' + t.subtitle : '') + '</div>' +
-      '<button class="popup-link" data-trace="' + t.id + '">Voir la fiche →</button>';
-    poly.bindPopup(popupHtml);
     poly.on('click', () => openTrace(t.id));
     allBounds.push(poly.getBounds());
   });
