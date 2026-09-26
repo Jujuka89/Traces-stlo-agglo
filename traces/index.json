@@ -16,5 +16,11 @@
     "name": "Ste Suzanne sur Vire",
     "subtitle": "",
     "distance_km": 27.7
+  },
+  {
+    "id": "st_georges_moncocq",
+    "name": "St Georges Moncocq",
+    "subtitle": "",
+    "distance_km": 21.21
   }
 ]
