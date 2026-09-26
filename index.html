@@ -181,8 +181,17 @@
   .home-col-todo, .home-col-activity { margin-top: 28px; }
 
   @media (min-width: 900px) {
-    #home-view .content { max-width: 820px; }
-    #home-map { height: 520px; }
+    #home-view .content { max-width: 1240px; }
+    #home-map { height: 460px; }
+    .home-grid {
+      display: grid;
+      grid-template-columns: 0.85fr 1.4fr 0.85fr;
+      gap: 24px;
+      align-items: start;
+    }
+    .home-col-main { order: 2; }
+    .home-col-todo { order: 1; margin-top: 0; }
+    .home-col-activity { order: 3; margin-top: 0; }
   }
 
   .activity-row {
