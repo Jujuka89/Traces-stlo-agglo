@@ -449,6 +449,15 @@
   </div>
 </div>
 
+<div id="start-trace-modal" style="display:none; position:fixed; inset:0; background:rgba(8,9,11,0.92); z-index:3600; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+  <div style="background:var(--surface); border:1px solid var(--accent); border-radius:16px; padding:26px; max-width:420px; width:100%; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+    <div style="font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:700; margin-bottom:6px; color:var(--text);">🚵 Choisissez votre parcours de départ</div>
+    <div style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">Une fois ce parcours terminé, les tracés situés autour se débloqueront automatiquement.</div>
+    <div id="start-trace-list" style="overflow-y:auto; flex:1; margin-bottom:16px; padding-right:2px;"></div>
+    <button class="btn btn-primary" id="start-trace-confirm" style="width:100%;" disabled>Commencer l'aventure</button>
+  </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
 <script type="module">
@@ -458,7 +467,7 @@ import {
   signOut, onAuthStateChanged, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, doc, setDoc, getDoc, collection, collectionGroup, onSnapshot, serverTimestamp, increment
+  getFirestore, doc, setDoc, getDoc, collection, collectionGroup, onSnapshot, serverTimestamp, increment, arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -506,6 +515,10 @@ async function loadTraces() {
 }
 
 let currentUser = null;
+let justSignedUp = false;
+let unlockedTraces = null; // null = pas encore chargé/choisi ; sinon liste d'ids accessibles
+let chosenStartTraceId = null;
+const UNLOCK_RADIUS_M = 8000; // rayon (m) autour d'un parcours terminé pour débloquer ses voisins
 let currentTraceId = null;
 let map, track;
 let startMarker, directionDecorator;
@@ -1027,10 +1040,108 @@ document.getElementById('header-user-label').addEventListener('click', () => {
   if (currentUser) openParticipant(currentUser.uid);
 });
 
+/* ---------- SYSTÈME DE DÉBLOCAGE PROGRESSIF ---------- */
+function isTraceUnlocked(traceId) {
+  if (!unlockedTraces) return false;
+  return unlockedTraces.includes(traceId);
+}
+
+async function loadUnlockedTraces() {
+  if (!currentUser) { unlockedTraces = null; return; }
+  try {
+    const snap = await getDoc(doc(db, 'users', currentUser.uid));
+    if (snap.exists() && Array.isArray(snap.data().unlockedTraces) && snap.data().unlockedTraces.length) {
+      unlockedTraces = snap.data().unlockedTraces;
+    } else {
+      unlockedTraces = null;
+    }
+  } catch (e) {
+    unlockedTraces = null;
+  }
+}
+
+function traceCentroid(trace) {
+  const lats = trace.coords.map(c => c[0]);
+  const lons = trace.coords.map(c => c[1]);
+  return [(Math.min(...lats) + Math.max(...lats)) / 2, (Math.min(...lons) + Math.max(...lons)) / 2];
+}
+
+function computeNearbyTraceIds(traceId) {
+  const base = TRACES[traceId];
+  if (!base) return [];
+  const [blat, blon] = traceCentroid(base);
+  const nearby = [];
+  Object.values(TRACES).forEach(t => {
+    if (t.id === traceId) return;
+    const [lat, lon] = traceCentroid(t);
+    if (haversineMeters(blat, blon, lat, lon) <= UNLOCK_RADIUS_M) nearby.push(t.id);
+  });
+  return nearby;
+}
+
+async function unlockNearbyTraces(traceId) {
+  if (!currentUser) return;
+  const toUnlock = [traceId, ...computeNearbyTraceIds(traceId)];
+  unlockedTraces = Array.from(new Set([...(unlockedTraces || []), ...toUnlock]));
+  try {
+    await setDoc(doc(db, 'users', currentUser.uid), { unlockedTraces: arrayUnion(...toUnlock) }, { merge: true });
+  } catch (e) { /* la mise à jour locale reste valable pour cette session */ }
+  renderTraceList();
+  refreshHomeColors();
+}
+
+function openStartTraceModal() {
+  const list = document.getElementById('start-trace-list');
+  list.innerHTML = '';
+  chosenStartTraceId = null;
+  document.getElementById('start-trace-confirm').disabled = true;
+
+  TRACE_LIST.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'trace-card is-pending';
+    card.style.marginBottom = '8px';
+    card.innerHTML =
+      '<div class="trace-card-info">' +
+        '<span class="trace-card-name">' + t.name + '</span>' +
+        '<span class="trace-card-meta">' + (t.subtitle || '') + '</span>' +
+      '</div>' +
+      '<div class="trace-card-dist">' + t.distance_km + ' km</div>';
+    card.addEventListener('click', () => {
+      Array.from(list.children).forEach(c => { c.style.outline = 'none'; });
+      card.style.outline = '2px solid var(--accent)';
+      chosenStartTraceId = t.id;
+      document.getElementById('start-trace-confirm').disabled = false;
+    });
+    list.appendChild(card);
+  });
+
+  document.getElementById('start-trace-modal').style.display = 'flex';
+}
+
+document.getElementById('start-trace-confirm').addEventListener('click', async () => {
+  if (!chosenStartTraceId || !currentUser) return;
+  const btn = document.getElementById('start-trace-confirm');
+  btn.disabled = true; btn.textContent = 'Enregistrement…';
+  try {
+    await setDoc(doc(db, 'users', currentUser.uid), { unlockedTraces: [chosenStartTraceId] }, { merge: true });
+    unlockedTraces = [chosenStartTraceId];
+    document.getElementById('start-trace-modal').style.display = 'none';
+    renderTraceList();
+    refreshHomeColors();
+  } catch (e) {
+    btn.disabled = false;
+  }
+  btn.textContent = "Commencer l'aventure";
+});
+
 /* ---------- OUVERTURE D'UN PARCOURS ---------- */
 function openTrace(id) {
   const trace = TRACES[id];
   if (!trace) return;
+  if (!isTraceUnlocked(id)) {
+    alert('🔒 Ce parcours n\'est pas encore débloqué.\n\nTerminez un parcours voisin pour y accéder !');
+    return;
+  }
   currentTraceId = id;
 
   document.getElementById('app-trace-title').textContent = trace.name;
@@ -1188,6 +1299,7 @@ document.getElementById('gate-signup').addEventListener('click', async () => {
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, pwd);
     await updateProfile(cred.user, { displayName: name });
+    justSignedUp = true;
   } catch (e) {
     gateMsg.className = 'msg err'; gateMsg.textContent = errFr(e.code);
   }
@@ -1453,6 +1565,7 @@ async function performValidation(source, durationSeconds) {
     validateMsg.className = 'msg ok';
     validateMsg.textContent = source === 'gpx' ? 'Validé automatiquement via votre trace GPX !' : 'Validation enregistrée !';
     isValidatedForCurrentTrace = true;
+    unlockNearbyTraces(currentTraceId);
     maybeShowVoteModal();
   } catch (e) {
     validateMsg.className = 'msg err'; validateMsg.textContent = 'Erreur : ' + e.code;
