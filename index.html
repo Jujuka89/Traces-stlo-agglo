@@ -116,6 +116,12 @@
   .trace-card-sub { font-size: 13px; color: var(--text-dim); margin-top: 3px; }
   .trace-card-dist { font-family: "Space Grotesk", sans-serif; font-size: 15px; font-weight: 700; color: var(--accent); white-space: nowrap; margin-left: 8px; flex-shrink: 0; }
   .leaflet-popup-content-wrapper { background: var(--surface); color: var(--text); border-radius: 10px; }
+  .trace-tooltip {
+    background: var(--surface); color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; font-family: "Space Grotesk", sans-serif; font-weight: 600; font-size: 13px;
+    padding: 4px 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  }
+  .trace-tooltip::before { border-top-color: var(--line) !important; }
   .leaflet-popup-tip { background: var(--surface); }
   .start-marker-inner {
     width: 32px; height: 32px;
@@ -706,6 +712,7 @@ function renderHome() {
     const fullTrace = TRACES[t.id];
     const poly = L.polygon(fullTrace.coords, { color: '#FF5A1F', weight: 3, fillColor: '#FF8659', fillOpacity: 0.3 }).addTo(homeMap);
     t._polygon = poly;
+    poly.bindTooltip(t.name, { sticky: true, direction: 'top', className: 'trace-tooltip' });
     const popupHtml =
       '<div class="popup-name">' + t.name + '</div>' +
       '<div class="popup-dist">' + t.distance_km + ' km' + (t.subtitle ? ' · ' + t.subtitle : '') + '</div>' +
