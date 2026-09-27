@@ -12,6 +12,12 @@
     "distance_km": 22.78
   },
   {
+    "id": "canisy",
+    "name": "Canisy",
+    "subtitle": "",
+    "distance_km": 21.42
+  },
+  {
     "id": "saint_l",
     "name": "Saint-Lô",
     "subtitle": "",
