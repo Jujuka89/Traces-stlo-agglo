@@ -52,5 +52,11 @@
     "name": "St Georges Moncocq",
     "subtitle": "",
     "distance_km": 21.21
+  },
+  {
+    "id": "st_martin_de_bonfoss",
+    "name": "St Martin de Bonfossé",
+    "subtitle": "",
+    "distance_km": 26.78
   }
 ]
