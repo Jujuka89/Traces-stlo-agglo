@@ -714,6 +714,21 @@ function watchSiteStats() {
 
 let homeMap = null;
 
+function renderHomeTraces() {
+  const allBounds = [];
+  TRACE_LIST.forEach(t => {
+    if (!isTraceUnlocked(t.id)) return; // masqué tant que non débloqué
+    if (t._polygon) { allBounds.push(t._polygon.getBounds()); return; } // déjà affiché
+    const fullTrace = TRACES[t.id];
+    const poly = L.polygon(fullTrace.coords, { color: '#FF5A1F', weight: 3, fillColor: '#FF8659', fillOpacity: 0.3 }).addTo(homeMap);
+    t._polygon = poly;
+    poly.bindTooltip(t.name, { sticky: true, direction: 'top', className: 'trace-tooltip' });
+    poly.on('click', () => openTrace(t.id));
+    allBounds.push(poly.getBounds());
+  });
+  return allBounds;
+}
+
 function renderHome() {
   if (homeMap) { setTimeout(() => homeMap.invalidateSize(), 50); return; }
   homeMap = L.map('home-map');
@@ -722,23 +737,13 @@ function renderHome() {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(homeMap);
 
-  const allBounds = [];
-  TRACE_LIST.forEach(t => {
-    const fullTrace = TRACES[t.id];
-    const locked = !isTraceUnlocked(t.id);
-    const poly = L.polygon(fullTrace.coords, locked
-      ? { color: '#5A5C64', weight: 3, fillColor: '#3A3C44', fillOpacity: 0.35 }
-      : { color: '#FF5A1F', weight: 3, fillColor: '#FF8659', fillOpacity: 0.3 }
-    ).addTo(homeMap);
-    t._polygon = poly;
-    poly.bindTooltip(locked ? '🔒 ' + t.name : t.name, { sticky: true, direction: 'top', className: 'trace-tooltip' });
-    poly.on('click', () => openTrace(t.id));
-    allBounds.push(poly.getBounds());
-  });
+  const allBounds = renderHomeTraces();
 
-  let bounds = allBounds[0];
-  allBounds.forEach(b => { bounds = bounds.extend(b); });
-  homeMap.fitBounds(bounds, { padding: [40, 40] });
+  if (allBounds.length) {
+    let bounds = allBounds[0];
+    allBounds.forEach(b => { bounds = bounds.extend(b); });
+    homeMap.fitBounds(bounds, { padding: [40, 40] });
+  }
 
   setTimeout(() => homeMap.invalidateSize(), 100);
   refreshHomeColors();
@@ -843,13 +848,9 @@ function watchAllParticipantCounts() {
       t.participants = snap.size;
       t.validated = currentUser ? snap.docs.some(d => d.id === currentUser.uid) : false;
       if (t._polygon) {
-        if (!isTraceUnlocked(t.id)) {
-          t._polygon.setStyle({ color: '#5A5C64', fillColor: '#3A3C44', fillOpacity: 0.35 });
-        } else {
-          t._polygon.setStyle(t.validated
-            ? { color: '#3DDC84', fillColor: '#0F4025', fillOpacity: 0.65 }
-            : { color: '#FF5A1F', fillColor: '#FF8659', fillOpacity: 0.3 });
-        }
+        t._polygon.setStyle(t.validated
+          ? { color: '#3DDC84', fillColor: '#0F4025', fillOpacity: 0.65 }
+          : { color: '#FF5A1F', fillColor: '#FF8659', fillOpacity: 0.3 });
       }
       renderTraceList();
     }, (e) => { /* ignore les erreurs de lecture ici, la fiche du parcours les affichera */ })
@@ -884,11 +885,7 @@ function watchAllRatings() {
 async function refreshHomeColors() {
   if (!currentUser) return;
   for (const t of TRACE_LIST) {
-    if (!t._polygon) continue;
-    if (!isTraceUnlocked(t.id)) {
-      t._polygon.setStyle({ color: '#5A5C64', fillColor: '#3A3C44', fillOpacity: 0.35 });
-      continue;
-    }
+    if (!t._polygon) continue; // tracé verrouillé : pas de polygone à colorer
     try {
       const snap = await getDoc(doc(db, 'traces', t.id, 'validations', currentUser.uid));
       t._polygon.setStyle(snap.exists()
@@ -1116,6 +1113,7 @@ async function unlockNearbyTraces(traceId) {
     await setDoc(doc(db, 'users', currentUser.uid), { unlockedTraces: arrayUnion(...toUnlock) }, { merge: true });
   } catch (e) { /* la mise à jour locale reste valable pour cette session */ }
   renderTraceList();
+  if (homeMap) renderHomeTraces();
   refreshHomeColors();
 }
 
@@ -1159,6 +1157,12 @@ if (startTraceConfirmBtn) {
       const modalEl = document.getElementById('start-trace-modal');
       if (modalEl) modalEl.style.display = 'none';
       renderTraceList();
+      if (homeMap) {
+        renderHomeTraces();
+        if (TRACES[chosenStartTraceId] && TRACES[chosenStartTraceId].coords) {
+          homeMap.fitBounds(L.polygon(TRACES[chosenStartTraceId].coords).getBounds(), { padding: [40, 40] });
+        }
+      }
       refreshHomeColors();
     } catch (e) {
       btn.disabled = false;
