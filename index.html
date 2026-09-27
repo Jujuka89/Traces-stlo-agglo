@@ -520,7 +520,7 @@ let currentUser = null;
 let justSignedUp = false;
 let unlockedTraces = null; // null = pas encore chargé/choisi ; sinon liste d'ids accessibles
 let chosenStartTraceId = null;
-const UNLOCK_RADIUS_M = 8000; // rayon (m) autour d'un parcours terminé pour débloquer ses voisins
+const UNLOCK_RADIUS_M = 50; // distance (m) entre deux tracés pour les considérer "collés"
 let currentTraceId = null;
 let map, track;
 let startMarker, directionDecorator;
@@ -1083,21 +1083,27 @@ async function loadUnlockedTraces() {
   }
 }
 
-function traceCentroid(trace) {
-  const lats = trace.coords.map(c => c[0]);
-  const lons = trace.coords.map(c => c[1]);
-  return [(Math.min(...lats) + Math.max(...lats)) / 2, (Math.min(...lons) + Math.max(...lons)) / 2];
+function tracesAreAdjacent(traceA, traceB, thresholdMeters) {
+  // Échantillonnage pour limiter le nombre de comparaisons sans perdre en fiabilité
+  const stepA = Math.max(1, Math.floor(traceA.coords.length / 150));
+  const stepB = Math.max(1, Math.floor(traceB.coords.length / 150));
+  for (let i = 0; i < traceA.coords.length; i += stepA) {
+    const [alat, alon] = traceA.coords[i];
+    for (let j = 0; j < traceB.coords.length; j += stepB) {
+      const [blat, blon] = traceB.coords[j];
+      if (haversineMeters(alat, alon, blat, blon) <= thresholdMeters) return true;
+    }
+  }
+  return false;
 }
 
 function computeNearbyTraceIds(traceId) {
   const base = TRACES[traceId];
   if (!base) return [];
-  const [blat, blon] = traceCentroid(base);
   const nearby = [];
   Object.values(TRACES).forEach(t => {
     if (t.id === traceId) return;
-    const [lat, lon] = traceCentroid(t);
-    if (haversineMeters(blat, blon, lat, lon) <= UNLOCK_RADIUS_M) nearby.push(t.id);
+    if (tracesAreAdjacent(base, t, UNLOCK_RADIUS_M)) nearby.push(t.id);
   });
   return nearby;
 }
