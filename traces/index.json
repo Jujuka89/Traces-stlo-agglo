@@ -64,5 +64,11 @@
     "name": "St Martin de Bonfossé",
     "subtitle": "",
     "distance_km": 26.78
+  },
+  {
+    "id": "st_pierre_de_semilly",
+    "name": "St Pierre de Semilly",
+    "subtitle": "",
+    "distance_km": 21.67
   }
 ]
