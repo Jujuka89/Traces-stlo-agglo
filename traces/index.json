@@ -30,6 +30,12 @@
     "distance_km": 24.3
   },
   {
+    "id": "canisy",
+    "name": "Canisy",
+    "subtitle": "",
+    "distance_km": 21.42
+  },
+  {
     "id": "rampan",
     "name": "Rampan",
     "subtitle": "",
