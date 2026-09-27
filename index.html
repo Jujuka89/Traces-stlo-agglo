@@ -1333,11 +1333,12 @@ document.getElementById('gate-signup').addEventListener('click', async () => {
   const pwd = document.getElementById('gate-password').value;
   if (!name) { gateMsg.className = 'msg err'; gateMsg.textContent = 'Merci d\'indiquer un prénom.'; return; }
   gateMsg.className = 'msg'; gateMsg.textContent = 'Création en cours…';
+  justSignedUp = true; // posé AVANT l'appel Firebase : onAuthStateChanged peut se déclencher immédiatement
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, pwd);
     await updateProfile(cred.user, { displayName: name });
-    justSignedUp = true;
   } catch (e) {
+    justSignedUp = false; // échec de l'inscription : on annule le marqueur
     gateMsg.className = 'msg err'; gateMsg.textContent = errFr(e.code);
   }
 });
