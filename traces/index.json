@@ -30,6 +30,12 @@
     "distance_km": 21.42
   },
   {
+    "id": "rampan",
+    "name": "Rampan",
+    "subtitle": "",
+    "distance_km": 21.27
+  },
+  {
     "id": "saint_l",
     "name": "Saint-Lô",
     "subtitle": "",
