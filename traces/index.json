@@ -60,6 +60,12 @@
     "distance_km": 21.21
   },
   {
+    "id": "st_gilles",
+    "name": "St Gilles",
+    "subtitle": "",
+    "distance_km": 27.59
+  },
+  {
     "id": "st_martin_de_bonfoss",
     "name": "St Martin de Bonfossé",
     "subtitle": "",
