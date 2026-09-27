@@ -6,6 +6,12 @@
     "distance_km": 29.81
   },
   {
+    "id": "amigny",
+    "name": "Amigny",
+    "subtitle": "",
+    "distance_km": 30.15
+  },
+  {
     "id": "baudre",
     "name": "Baudre",
     "subtitle": "",
