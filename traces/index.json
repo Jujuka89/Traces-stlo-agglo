@@ -76,5 +76,11 @@
     "name": "St Pierre de Semilly",
     "subtitle": "",
     "distance_km": 21.67
+  },
+  {
+    "id": "villiers_fossard",
+    "name": "Villiers Fossard",
+    "subtitle": "",
+    "distance_km": 25.39
   }
 ]
