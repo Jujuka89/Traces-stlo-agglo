@@ -443,7 +443,6 @@
     </div>
     <button class="btn btn-primary" id="submit-vote" style="width:100%;">Valider mon vote</button>
     <div class="msg" id="vote-status"></div>
-    <button class="back-btn" id="vote-later" style="width:100%; justify-content:center; margin-top:10px;">Plus tard</button>
   </div>
 </div>
 
@@ -1636,10 +1635,6 @@ function maybeShowVoteModal() {
     openVoteModal();
   }
 }
-
-document.getElementById('vote-later').addEventListener('click', () => {
-  voteModal.style.display = 'none';
-});
 
 async function loadMyVote(traceId) {
   if (!currentUser) { isVotedForCurrentTrace = false; return; }
