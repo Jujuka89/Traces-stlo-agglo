@@ -36,6 +36,12 @@
     "distance_km": 21.42
   },
   {
+    "id": "moyon_village",
+    "name": "Moyon Village",
+    "subtitle": "",
+    "distance_km": 30.05
+  },
+  {
     "id": "quibou",
     "name": "Quibou",
     "subtitle": "",
