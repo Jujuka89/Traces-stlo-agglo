@@ -36,6 +36,12 @@
     "distance_km": 21.42
   },
   {
+    "id": "quibou",
+    "name": "Quibou",
+    "subtitle": "",
+    "distance_km": 24.86
+  },
+  {
     "id": "rampan",
     "name": "Rampan",
     "subtitle": "",
