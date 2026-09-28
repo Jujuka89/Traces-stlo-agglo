@@ -457,6 +457,16 @@
   </div>
 </div>
 
+<div id="unlock-modal" style="display:none; position:fixed; inset:0; background:rgba(8,9,11,0.85); z-index:3700; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+  <div style="background:var(--surface); border:1px solid var(--validated); border-radius:16px; padding:28px; max-width:380px; width:100%; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+    <div style="font-size:38px; margin-bottom:8px;">🎉</div>
+    <div style="font-family:'Space Grotesk',sans-serif; font-size:20px; font-weight:700; margin-bottom:6px; color:var(--text);">Félicitations !</div>
+    <div style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">Vous avez débloqué les parcours suivants :</div>
+    <div id="unlock-modal-list" style="max-height:40vh; overflow-y:auto; margin-bottom:20px; text-align:left;"></div>
+    <button class="btn btn-primary" id="unlock-modal-close" style="width:100%;">Super !</button>
+  </div>
+</div>
+
 <div id="start-trace-modal" style="display:none; position:fixed; inset:0; background:rgba(8,9,11,0.92); z-index:3600; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
   <div style="background:var(--surface); border:1px solid var(--accent); border-radius:16px; padding:26px; max-width:420px; width:100%; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
     <div style="font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:700; margin-bottom:6px; color:var(--text);">🚵 Choisissez votre parcours de départ</div>
@@ -1150,14 +1160,40 @@ function computeNearbyTraceIds(traceId) {
 
 async function unlockNearbyTraces(traceId) {
   if (!currentUser) return;
+  const before = new Set(unlockedTraces || []);
   const toUnlock = [traceId, ...computeNearbyTraceIds(traceId)];
-  unlockedTraces = Array.from(new Set([...(unlockedTraces || []), ...toUnlock]));
+  const newlyUnlocked = toUnlock.filter(id => id !== traceId && !before.has(id));
+  unlockedTraces = Array.from(new Set([...before, ...toUnlock]));
   try {
     await setDoc(doc(db, 'users', currentUser.uid), { unlockedTraces: arrayUnion(...toUnlock) }, { merge: true });
   } catch (e) { /* la mise à jour locale reste valable pour cette session */ }
   renderTraceList();
   if (homeMap) renderHomeTraces();
   refreshHomeColors();
+  if (newlyUnlocked.length) showUnlockPopup(newlyUnlocked);
+}
+
+function showUnlockPopup(ids) {
+  const modal = document.getElementById('unlock-modal');
+  const list = document.getElementById('unlock-modal-list');
+  if (!modal || !list) return;
+  list.innerHTML = ids.map(id => {
+    const t = TRACE_LIST.find(x => x.id === id);
+    if (!t) return '';
+    return '<div class="activity-row" style="margin-bottom:8px;">' +
+      '<span class="activity-name">🔓 ' + t.name + '</span>' +
+      '<span class="activity-date">' + (t.subtitle ? t.subtitle + ' · ' : '') + t.distance_km + ' km</span>' +
+    '</div>';
+  }).join('');
+  modal.style.display = 'flex';
+}
+
+const unlockModalClose = document.getElementById('unlock-modal-close');
+if (unlockModalClose) {
+  unlockModalClose.addEventListener('click', () => {
+    const modal = document.getElementById('unlock-modal');
+    if (modal) modal.style.display = 'none';
+  });
 }
 
 function openStartTraceModal() {
