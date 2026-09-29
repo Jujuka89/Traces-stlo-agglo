@@ -223,6 +223,14 @@
   }
   .chart-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
 
+  .news-item {
+    background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;
+  }
+  .news-item .news-title { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 14px; color: var(--text); margin-bottom: 3px; }
+  .news-item .news-body { font-size: 13px; color: var(--text-dim); line-height: 1.4; }
+  .news-item .news-date { font-size: 11px; color: var(--text-dim); opacity: 0.7; margin-top: 6px; display: block; }
+
   .btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none !important; transform: none !important; }
   input[type="range"]:disabled { opacity: 0.35; cursor: not-allowed; }
 
@@ -307,6 +315,9 @@
         <div class="page-title" style="margin-top:0;">Parcours conseillé</div>
         <div class="page-sub">Le tracé le mieux noté parmi ceux qu'il vous reste à faire.</div>
         <div id="trace-list"></div>
+
+        <div class="section-title" style="margin-top:26px;">📣 Actualités</div>
+        <div id="news-list"><div style="color:var(--text-dim); font-size:13px;">Chargement…</div></div>
       </div>
 
       <div class="home-col-activity">
@@ -660,6 +671,47 @@ function renderLeaderboard() {
       primaryHtml;
     list.appendChild(row);
   });
+}
+
+let unsubNews = null;
+
+function watchNews() {
+  if (unsubNews) unsubNews();
+  try {
+    unsubNews = onSnapshot(collection(db, 'news'), (snap) => {
+      const items = [];
+      snap.forEach(docSnap => {
+        const d = docSnap.data();
+        items.push({
+          title: d.title || '',
+          body: d.body || '',
+          seconds: (d.date && d.date.seconds) ? d.date.seconds : 0
+        });
+      });
+      items.sort((a, b) => b.seconds - a.seconds);
+      renderNews(items.slice(0, 3));
+    }, () => {
+      const el = document.getElementById('news-list');
+      if (el) el.innerHTML = '';
+    });
+  } catch (e) { /* pas grave, la fenêtre reste vide */ }
+}
+
+function renderNews(items) {
+  const el = document.getElementById('news-list');
+  if (!el) return;
+  if (!items.length) {
+    el.innerHTML = '<div style="color:var(--text-dim); font-size:13px;">Aucune actualité pour le moment.</div>';
+    return;
+  }
+  el.innerHTML = items.map(n => {
+    const dateStr = n.seconds ? new Date(n.seconds * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) : '';
+    return '<div class="news-item">' +
+      '<div class="news-title">' + n.title + '</div>' +
+      '<div class="news-body">' + n.body + '</div>' +
+      (dateStr ? '<span class="news-date">' + dateStr + '</span>' : '') +
+    '</div>';
+  }).join('');
 }
 
 let unsubGallery = null;
@@ -1453,6 +1505,7 @@ onAuthStateChanged(auth, async (user) => {
       watchAllRatings();
       watchLeaderboard();
       watchGallery();
+      watchNews();
       showHome();
       checkForNewTraces();
       if (justSignedUp && !unlockedTraces) {
@@ -1473,6 +1526,7 @@ onAuthStateChanged(auth, async (user) => {
     if (unsubVotes) unsubVotes();
     if (unsubLeaderboard) unsubLeaderboard();
     if (unsubGallery) unsubGallery();
+    if (unsubNews) unsubNews();
     if (unsubRatings) unsubRatings();
     if (unsubSiteStats) unsubSiteStats();
     unsubHomeCounts.forEach(u => u());
