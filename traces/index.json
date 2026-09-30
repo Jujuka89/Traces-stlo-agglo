@@ -36,6 +36,12 @@
     "distance_km": 21.42
   },
   {
+    "id": "cond_sur_vire",
+    "name": "Condé sur Vire",
+    "subtitle": "",
+    "distance_km": 29.75
+  },
+  {
     "id": "moyon_village",
     "name": "Moyon Village",
     "subtitle": "",
