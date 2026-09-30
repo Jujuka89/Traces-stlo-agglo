@@ -318,6 +318,11 @@
 
         <div class="section-title" style="margin-top:26px;">📣 Actualités</div>
         <div id="news-list"><div style="color:var(--text-dim); font-size:13px;">Chargement…</div></div>
+
+        <div class="section-title" style="margin-top:26px;">🌦️ Météo à Saint-Lô</div>
+        <div class="chart-card" id="weather-box" style="margin-bottom:20px;">
+          <div style="color:var(--text-dim); font-size:13px;">Chargement…</div>
+        </div>
       </div>
 
       <div class="home-col-activity">
@@ -712,6 +717,72 @@ function renderNews(items) {
       (dateStr ? '<span class="news-date">' + dateStr + '</span>' : '') +
     '</div>';
   }).join('');
+}
+
+/* ---------- MÉTÉO (Open-Meteo, gratuit, sans clé) ---------- */
+function weatherEmoji(code) {
+  if (code === 0) return '☀️';
+  if (code === 1 || code === 2) return '🌤️';
+  if (code === 3) return '☁️';
+  if (code === 45 || code === 48) return '🌫️';
+  if ([51, 53, 55, 56, 57].includes(code)) return '🌦️';
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return '🌧️';
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return '🌨️';
+  if ([95, 96, 99].includes(code)) return '⛈️';
+  return '🌡️';
+}
+
+function weatherLabel(code) {
+  const map = {
+    0: 'Ciel dégagé', 1: 'Peu nuageux', 2: 'Partiellement nuageux', 3: 'Couvert',
+    45: 'Brouillard', 48: 'Brouillard givrant',
+    51: 'Bruine légère', 53: 'Bruine', 55: 'Bruine forte', 56: 'Bruine verglaçante', 57: 'Bruine verglaçante forte',
+    61: 'Pluie légère', 63: 'Pluie', 65: 'Pluie forte', 66: 'Pluie verglaçante', 67: 'Pluie verglaçante forte',
+    71: 'Neige légère', 73: 'Neige', 75: 'Neige forte', 77: 'Grains de neige',
+    80: 'Averses légères', 81: 'Averses', 82: 'Averses violentes',
+    85: 'Averses de neige', 86: 'Averses de neige fortes',
+    95: 'Orage', 96: 'Orage avec grêle', 99: 'Orage violent avec grêle'
+  };
+  return map[code] || 'Conditions variables';
+}
+
+async function loadWeather() {
+  const box = document.getElementById('weather-box');
+  if (!box) return;
+  try {
+    const url = 'https://api.open-meteo.com/v1/forecast?latitude=49.1147&longitude=-1.0904'
+      + '&current=temperature_2m,weathercode,wind_speed_10m'
+      + '&daily=temperature_2m_max,temperature_2m_min,weathercode'
+      + '&timezone=Europe%2FParis&forecast_days=4';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('bad response');
+    const data = await res.json();
+    const cur = data.current;
+
+    let html = '<div style="display:flex; align-items:center; gap:14px; margin-bottom:14px;">' +
+      '<div style="font-size:40px; line-height:1;">' + weatherEmoji(cur.weathercode) + '</div>' +
+      '<div>' +
+        '<div style="font-family:\'Space Grotesk\',sans-serif; font-size:26px; font-weight:700; color:var(--text);">' + Math.round(cur.temperature_2m) + '°C</div>' +
+        '<div style="font-size:12px; color:var(--text-dim);">' + weatherLabel(cur.weathercode) + ' · vent ' + Math.round(cur.wind_speed_10m) + ' km/h</div>' +
+      '</div>' +
+    '</div>';
+
+    html += '<div style="display:flex; gap:6px;">';
+    data.daily.time.forEach((dateStr, i) => {
+      const d = new Date(dateStr + 'T12:00:00');
+      const label = (i === 0) ? 'Auj.' : d.toLocaleDateString('fr-FR', { weekday: 'short' });
+      html += '<div style="flex:1; text-align:center; background:var(--surface-2); border-radius:8px; padding:8px 4px;">' +
+        '<div style="font-size:11px; color:var(--text-dim); text-transform:capitalize;">' + label + '</div>' +
+        '<div style="font-size:18px; margin:4px 0;">' + weatherEmoji(data.daily.weathercode[i]) + '</div>' +
+        '<div style="font-size:11px; color:var(--text);">' + Math.round(data.daily.temperature_2m_max[i]) + '° <span style="color:var(--text-dim);">' + Math.round(data.daily.temperature_2m_min[i]) + '°</span></div>' +
+      '</div>';
+    });
+    html += '</div>';
+
+    box.innerHTML = html;
+  } catch (e) {
+    box.innerHTML = '<div style="color:var(--text-dim); font-size:13px;">Météo indisponible pour le moment.</div>';
+  }
 }
 
 let unsubGallery = null;
@@ -1506,6 +1577,7 @@ onAuthStateChanged(auth, async (user) => {
       watchLeaderboard();
       watchGallery();
       watchNews();
+      loadWeather();
       showHome();
       checkForNewTraces();
       if (justSignedUp && !unlockedTraces) {
