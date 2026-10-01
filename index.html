@@ -290,7 +290,8 @@
   <div class="card">
     <div style="font-family:'Space Grotesk',sans-serif; font-size:21px; font-weight:700; color:var(--text); margin-bottom:6px;">Challenge VTT Saint-Lô Agglo</div>
     <div style="font-size:13px; color:var(--text-dim); margin-bottom:22px;">Connectez-vous pour retrouver vos parcours</div>
-    <input type="text" id="gate-name" placeholder="Prénom (à l'inscription)">
+    <input type="text" id="gate-firstname" placeholder="Prénom (à l'inscription)" autocomplete="given-name">
+    <input type="text" id="gate-lastname" placeholder="Nom (à l'inscription)" autocomplete="family-name">
     <input type="email" id="gate-email" placeholder="Adresse email">
     <input type="password" id="gate-password" placeholder="Mot de passe (6 caractères min.)">
     <div style="display:flex; gap:8px;">
@@ -1552,11 +1553,23 @@ function errFr(code) {
   return m[code] || 'Erreur : ' + code;
 }
 
+// Met une majuscule au début de chaque mot (et après un tiret ou une apostrophe) :
+// "jean-pierre" -> "Jean-Pierre", "d'artagnan" -> "D'Artagnan". Le reste du texte est conservé tel quel.
+function capitalizeName(s) {
+  return s.trim().replace(/\s+/g, ' ').replace(/(^|[\s\-'’])(\p{L})/gu, (m, sep, ch) => sep + ch.toUpperCase());
+}
+['gate-firstname', 'gate-lastname'].forEach(id => {
+  document.getElementById(id).addEventListener('blur', (e) => { e.target.value = capitalizeName(e.target.value); });
+});
+
 document.getElementById('gate-signup').addEventListener('click', async () => {
-  const name = document.getElementById('gate-name').value.trim();
+  const firstName = capitalizeName(document.getElementById('gate-firstname').value);
+  const lastName = capitalizeName(document.getElementById('gate-lastname').value);
+  const name = firstName + ' ' + lastName;
   const email = document.getElementById('gate-email').value.trim();
   const pwd = document.getElementById('gate-password').value;
-  if (!name) { gateMsg.className = 'msg err'; gateMsg.textContent = 'Merci d\'indiquer un prénom.'; return; }
+  if (!firstName) { gateMsg.className = 'msg err'; gateMsg.textContent = 'Merci d\'indiquer un prénom.'; return; }
+  if (!lastName) { gateMsg.className = 'msg err'; gateMsg.textContent = 'Merci d\'indiquer un nom.'; return; }
   gateMsg.className = 'msg'; gateMsg.textContent = 'Création en cours…';
   justSignedUp = true; // posé AVANT l'appel Firebase : onAuthStateChanged peut se déclencher immédiatement
   try {
