@@ -1788,6 +1788,7 @@ function openVoteModal() {
   document.getElementById('vote-diff-val').textContent = '10';
   document.getElementById('vote-appr-val').textContent = '10';
   document.getElementById('vote-status').textContent = '';
+  document.getElementById('submit-vote').disabled = false; // réactivé à chaque ouverture (désactivé après un vote précédent)
   updateVoteLabels();
   voteModal.style.display = 'flex';
 }
@@ -1802,8 +1803,10 @@ async function loadMyVote(traceId) {
   if (!currentUser) { isVotedForCurrentTrace = false; return; }
   try {
     const snap = await getDoc(doc(db, 'traces', traceId, 'votes', currentUser.uid));
+    if (traceId !== currentTraceId) return; // l'utilisateur a changé de parcours entre-temps
     isVotedForCurrentTrace = snap.exists();
   } catch (e) {
+    if (traceId !== currentTraceId) return;
     isVotedForCurrentTrace = false;
   }
   myVoteStatus.textContent = isVotedForCurrentTrace ? '✓ Vous avez déjà noté ce parcours.' : '';
