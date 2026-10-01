@@ -283,7 +283,6 @@
 
 <footer id="site-footer">
   <span class="nav-user">👀 <span id="footer-visits">--</span> visites</span>
-  <span class="nav-user">🚵 <span id="footer-participants">--</span> participants</span>
   <a href="#" id="nav-logout-link">Déconnexion</a>
 </footer>
 
@@ -332,6 +331,17 @@
       <div class="home-col-activity">
         <div class="section-title" style="margin-top:0;">🎯 Mon classement</div>
         <div id="top-participant-box" style="cursor:pointer;" title="Voir mes stats"></div>
+
+        <div class="leaderboard-row" style="margin-top:12px; justify-content:space-around; text-align:center;">
+          <div>
+            <div style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:22px; color:var(--accent);">🚵 <span id="stat-participants">--</span></div>
+            <div style="font-size:12px; color:var(--text-dim);">participants</div>
+          </div>
+          <div>
+            <div style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:22px; color:var(--accent);">🏁 <span id="stat-traces">--</span></div>
+            <div style="font-size:12px; color:var(--text-dim);">tracés effectués</div>
+          </div>
+        </div>
 
         <div class="page-title" style="margin-top:22px;">Derniers participants</div>
         <div class="page-sub">Les 3 dernières validations de parcours.</div>
@@ -624,8 +634,10 @@ function watchLeaderboard() {
     const recent = allEntries.sort((a, b) => b.seconds - a.seconds).slice(0, 3);
     renderRecentActivity(recent);
 
-    const footerParticipants = document.getElementById('footer-participants');
-    if (footerParticipants) footerParticipants.textContent = Object.keys(counts).length;
+    const statParticipants = document.getElementById('stat-participants');
+    if (statParticipants) statParticipants.textContent = Object.keys(counts).length;
+    const statTraces = document.getElementById('stat-traces');
+    if (statTraces) statTraces.textContent = snap.size;
   }, (e) => {
     document.getElementById('leaderboard-list').innerHTML =
       '<div style="color:var(--brick);">Erreur de chargement du classement : ' + e.code + '</div>';
