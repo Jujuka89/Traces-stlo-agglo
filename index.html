@@ -338,7 +338,7 @@
         <div class="section-title" style="margin-top:26px;">🏆 Meilleure trace</div>
         <div id="top-trace-box"></div>
 
-        <div class="section-title" style="margin-top:22px;">👑 Top participant</div>
+        <div class="section-title" style="margin-top:22px;">🎯 Mon classement</div>
         <div id="top-participant-box"></div>
       </div>
     </div>
@@ -961,18 +961,33 @@ function renderTopTrace() {
 function renderTopParticipant() {
   const box = document.getElementById('top-participant-box');
   if (!box) return;
-  if (!lastLeaderboardData.length) {
-    box.innerHTML = '<div style="color:var(--text-dim); font-size:13px;">Aucun participant pour le moment.</div>';
+  if (!currentUser) return;
+
+  const total = lastLeaderboardData.length;
+  const sorted = [...lastLeaderboardData].sort((a, b) => b.points - a.points);
+  const idx = sorted.findIndex(p => p.uid === currentUser.uid);
+
+  if (idx === -1) {
+    box.innerHTML =
+      '<div class="leaderboard-row">' +
+        '<div class="leaderboard-rank">--</div>' +
+        '<div class="leaderboard-name">' + (currentUser.displayName || currentUser.email) + '</div>' +
+        '<div class="leaderboard-count">0 pts</div>' +
+        '<div class="leaderboard-dist">0 parcours</div>' +
+      '</div>' +
+      '<div style="font-size:12px; color:var(--text-dim); margin-top:6px; text-align:center;">Pas encore classé(e) — validez un premier parcours !</div>';
     return;
   }
-  const top = [...lastLeaderboardData].sort((a, b) => b.points - a.points)[0];
+
+  const me = sorted[idx];
   box.innerHTML =
     '<div class="leaderboard-row">' +
-      '<div class="leaderboard-rank">🥇</div>' +
-      '<div class="leaderboard-name">' + top.nom + '</div>' +
-      '<div class="leaderboard-count">' + top.points + ' pts</div>' +
-      '<div class="leaderboard-dist">' + top.count + ' parcours</div>' +
-    '</div>';
+      '<div class="leaderboard-rank">' + (idx + 1) + '</div>' +
+      '<div class="leaderboard-name">' + me.nom + '</div>' +
+      '<div class="leaderboard-count">' + me.points + ' pts</div>' +
+      '<div class="leaderboard-dist">' + me.count + ' parcours</div>' +
+    '</div>' +
+    '<div style="font-size:12px; color:var(--text-dim); margin-top:6px; text-align:center;">Classement : ' + (idx + 1) + ' / ' + total + '</div>';
 }
 
 let parcoursSortMode = 'rating';
