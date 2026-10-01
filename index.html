@@ -987,8 +987,9 @@ function renderTopParticipant() {
         '<div class="leaderboard-name">' + (currentUser.displayName || currentUser.email) + '</div>' +
         '<div class="leaderboard-count">0 pts</div>' +
         '<div class="leaderboard-dist">0 parcours</div>' +
+        '<div style="font-size:12px; color:var(--text-dim); margin-left:auto; white-space:nowrap;">Voir mes stats →</div>' +
       '</div>' +
-      '<div style="font-size:12px; color:var(--text-dim); margin-top:6px; text-align:center;">Pas encore classé(e) — validez un premier parcours !<br>Voir mes stats →</div>';
+      '<div style="font-size:12px; color:var(--text-dim); margin-top:6px; text-align:center;">Pas encore classé(e) — validez un premier parcours !</div>';
     return;
   }
 
@@ -999,8 +1000,8 @@ function renderTopParticipant() {
       '<div class="leaderboard-name">' + me.nom + '</div>' +
       '<div class="leaderboard-count">' + me.points + ' pts</div>' +
       '<div class="leaderboard-dist">' + me.count + ' parcours</div>' +
-    '</div>' +
-    '<div style="font-size:12px; color:var(--text-dim); margin-top:6px; text-align:center;">Classement : ' + (idx + 1) + ' / ' + total + ' · Voir mes stats →</div>';
+      '<div style="font-size:12px; color:var(--text-dim); margin-left:auto; white-space:nowrap;">Voir mes stats →</div>' +
+    '</div>';
 }
 
 let parcoursSortMode = 'rating';
