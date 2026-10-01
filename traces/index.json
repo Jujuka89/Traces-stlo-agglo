@@ -48,6 +48,12 @@
     "distance_km": 29.21
   },
   {
+    "id": "la_luzerne",
+    "name": "La Luzerne",
+    "subtitle": "",
+    "distance_km": 25.54
+  },
+  {
     "id": "moyon_village",
     "name": "Moyon Village",
     "subtitle": "",
