@@ -42,6 +42,12 @@
     "distance_km": 29.75
   },
   {
+    "id": "dangy",
+    "name": "Dangy",
+    "subtitle": "",
+    "distance_km": 29.21
+  },
+  {
     "id": "moyon_village",
     "name": "Moyon Village",
     "subtitle": "",
