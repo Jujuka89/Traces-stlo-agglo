@@ -330,15 +330,12 @@
       </div>
 
       <div class="home-col-activity">
-        <div class="page-title" style="margin-top:0;">Derniers participants</div>
+        <div class="section-title" style="margin-top:0;">🎯 Mon classement</div>
+        <div id="top-participant-box" style="cursor:pointer;" title="Voir mes stats"></div>
+
+        <div class="page-title" style="margin-top:22px;">Derniers participants</div>
         <div class="page-sub">Les 3 dernières validations de parcours.</div>
         <div id="recent-activity-list"></div>
-
-        <div class="section-title" style="margin-top:26px;">🏆 Meilleure trace</div>
-        <div id="top-trace-box"></div>
-
-        <div class="section-title" style="margin-top:22px;">🎯 Mon classement</div>
-        <div id="top-participant-box" style="cursor:pointer;" title="Voir mes stats"></div>
       </div>
     </div>
   </div>
@@ -950,25 +947,6 @@ function renderTraceList() {
     list.appendChild(card);
   });
   renderParcoursRanking();
-  renderTopTrace();
-}
-
-function renderTopTrace() {
-  const box = document.getElementById('top-trace-box');
-  if (!box) return;
-  const rated = TRACE_LIST.filter(t => t.avgAppreciation != null);
-  if (!rated.length) {
-    box.innerHTML = '<div style="color:var(--text-dim); font-size:13px;">Pas encore de note.</div>';
-    return;
-  }
-  const best = rated.reduce((a, b) => (b.avgAppreciation > a.avgAppreciation ? b : a));
-  const locked = !isTraceUnlocked(best.id);
-  box.innerHTML = '';
-  const card = document.createElement('div');
-  card.className = 'trace-card ' + (locked ? 'is-locked' : (best.validated ? 'is-validated' : 'is-pending'));
-  card.innerHTML = traceCardBody(best);
-  card.addEventListener('click', () => openTrace(best.id));
-  box.appendChild(card);
 }
 
 function renderTopParticipant() {
