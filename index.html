@@ -673,7 +673,9 @@ function renderLeaderboard() {
     return;
   }
   const sorted = [...lastLeaderboardData].sort((a, b) =>
-    leaderboardSortMode === 'points' ? (b.points - a.points) : (b.count - a.count)
+    leaderboardSortMode === 'points'
+      ? (b.points - a.points) || (b.totalDist - a.totalDist)
+      : (b.count - a.count) || (b.totalDist - a.totalDist)  // égalité de parcours : le plus de km devant
   );
   const medals = ['🥇', '🥈', '🥉'];
   list.innerHTML = '';
@@ -968,7 +970,7 @@ function renderTopParticipant() {
   if (!currentUser) return;
 
   const total = lastLeaderboardData.length;
-  const sorted = [...lastLeaderboardData].sort((a, b) => b.points - a.points);
+  const sorted = [...lastLeaderboardData].sort((a, b) => (b.points - a.points) || (b.totalDist - a.totalDist));
   const idx = sorted.findIndex(p => p.uid === currentUser.uid);
 
   if (idx === -1) {
