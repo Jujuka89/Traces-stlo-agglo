@@ -72,6 +72,13 @@
       var(--bg);
     display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;
   }
+  /* Mode visiteur (non connecté) : le site est visible, mais sans parcours ni parcours conseillé */
+  .visitor-only { display: none; }
+  body.is-visitor .visitor-only { display: block; }
+  body.is-visitor .member-only { display: none !important; }
+  #join-btn { width: 100%; margin-bottom: 22px; font-size: 16px; padding: 14px; }
+  #gate-back { display: inline-block; margin-top: 16px; font-size: 13px; color: var(--text-dim); cursor: pointer; text-decoration: none; }
+  #gate-back:hover { color: var(--accent); }
   #gate-view .card { max-width: 380px; width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 32px; box-shadow: 0 20px 50px rgba(0,0,0,0.35); }
   input[type="email"], input[type="password"], input[type="text"] {
     width: 100%; box-sizing: border-box; padding: 12px 14px; border: 1px solid var(--line);
@@ -299,6 +306,7 @@
       <button class="btn btn-grey" id="gate-login" style="flex:1;">Se connecter</button>
     </div>
     <div class="msg" id="gate-msg"></div>
+    <a href="#" id="gate-back">← Retour au site</a>
   </div>
 </div>
 
@@ -316,9 +324,15 @@
       </div>
 
       <div class="home-col-todo">
-        <div class="section-title" style="margin-top:0;">🧭 Parcours conseillé</div>
-        <div class="page-sub">Le tracé le mieux noté parmi ceux qu'il vous reste à faire.</div>
-        <div id="trace-list"></div>
+        <div class="visitor-only">
+          <button class="btn btn-primary" id="join-btn">Participer au challenge</button>
+        </div>
+
+        <div class="member-only">
+          <div class="section-title" style="margin-top:0;">🧭 Parcours conseillé</div>
+          <div class="page-sub">Le tracé le mieux noté parmi ceux qu'il vous reste à faire.</div>
+          <div id="trace-list"></div>
+        </div>
 
         <div class="section-title" style="margin-top:26px;">📣 Actualités</div>
         <div id="news-list"><div style="color:var(--text-dim); font-size:13px;">Chargement…</div></div>
@@ -341,8 +355,10 @@
           </div>
         </div>
 
-        <div class="section-title" style="margin-top:22px;">🎯 Mon classement</div>
-        <div id="top-participant-box" style="cursor:pointer;" title="Voir mes stats"></div>
+        <div class="member-only">
+          <div class="section-title" style="margin-top:22px;">🎯 Mon classement</div>
+          <div id="top-participant-box" style="cursor:pointer;" title="Voir mes stats"></div>
+        </div>
 
         <div class="section-title" style="margin-top:22px;">👥 Derniers participants</div>
         <div class="page-sub">Les 3 dernières validations de parcours.</div>
@@ -640,8 +656,9 @@ function watchLeaderboard() {
     const statTraces = document.getElementById('stat-traces');
     if (statTraces) statTraces.textContent = snap.size;
   }, (e) => {
-    document.getElementById('leaderboard-list').innerHTML =
-      '<div style="color:var(--brick);">Erreur de chargement du classement : ' + e.code + '</div>';
+    document.getElementById('leaderboard-list').innerHTML = currentUser
+      ? '<div style="color:var(--brick);">Erreur de chargement du classement : ' + e.code + '</div>'
+      : '<div style="color:var(--text-dim);">Connectez-vous pour voir le classement.</div>';
   });
 }
 
@@ -822,8 +839,9 @@ function watchGallery() {
     items.sort((a, b) => b.seconds - a.seconds);
     renderGallery(items);
   }, (e) => {
-    document.getElementById('gallery-grid').innerHTML =
-      '<div style="color:var(--accent);">Erreur de chargement de la galerie : ' + e.code + '</div>';
+    document.getElementById('gallery-grid').innerHTML = currentUser
+      ? '<div style="color:var(--accent);">Erreur de chargement de la galerie : ' + e.code + '</div>'
+      : '<div style="color:var(--text-dim);">Connectez-vous pour voir la galerie.</div>';
   });
 }
 
@@ -897,7 +915,14 @@ function renderHomeTraces() {
 }
 
 function renderHome() {
-  if (homeMap) { setTimeout(() => homeMap.invalidateSize(), 50); return; }
+  if (homeMap) {
+    // Carte déjà créée (ex. mode visiteur puis connexion) : on ajoute les tracés désormais débloqués
+    renderHomeTraces();
+    refreshHomeColors();
+    renderTraceList();
+    setTimeout(() => homeMap.invalidateSize(), 50);
+    return;
+  }
   homeMap = L.map('home-map');
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -910,6 +935,8 @@ function renderHome() {
     let bounds = allBounds[0];
     allBounds.forEach(b => { bounds = bounds.extend(b); });
     homeMap.fitBounds(bounds, { padding: [40, 40] });
+  } else {
+    homeMap.setView([49.1156, -1.0908], 11); // visiteur : aucun parcours affiché, carte centrée sur Saint-Lô
   }
 
   setTimeout(() => homeMap.invalidateSize(), 100);
@@ -922,7 +949,7 @@ function traceCardBody(t) {
   if (locked) {
     return '<div class="trace-card-info">' +
         '<span class="trace-card-name">🔒 ' + t.name + '</span>' +
-        '<span class="trace-card-meta">À débloquer en terminant un parcours voisin</span>' +
+        '<span class="trace-card-meta">' + (currentUser ? 'À débloquer en terminant un parcours voisin' : 'Inscrivez-vous pour participer au challenge') + '</span>' +
       '</div>' +
       '<div class="trace-card-dist">' + t.distance_km + ' km</div>';
   }
@@ -1402,6 +1429,11 @@ function openTrace(id) {
   const trace = TRACES[id];
   if (!trace) return;
   if (!isTraceUnlocked(id)) {
+    if (!currentUser) {
+      alert('🔒 Inscrivez-vous pour participer au challenge et accéder aux parcours.');
+      showGate();
+      return;
+    }
     alert('🔒 Ce parcours n\'est pas encore débloqué.\n\nTerminez un parcours voisin pour y accéder !');
     return;
   }
@@ -1602,11 +1634,49 @@ document.getElementById('gate-login').addEventListener('click', async () => {
     gateMsg.className = 'msg err'; gateMsg.textContent = errFr(e.code);
   }
 });
-document.getElementById('nav-logout-link').addEventListener('click', (e) => { e.preventDefault(); signOut(auth); });
+// Footer : "Déconnexion" si connecté, "Se connecter" pour un visiteur
+document.getElementById('nav-logout-link').addEventListener('click', (e) => {
+  e.preventDefault();
+  if (currentUser) signOut(auth); else showGate();
+});
+document.getElementById('join-btn').addEventListener('click', showGate);
+document.getElementById('gate-back').addEventListener('click', (e) => { e.preventDefault(); showHome(); });
+
+// Mode visiteur : le site est visible, mais tous les parcours sont verrouillés
+// (liste verrouillée, aucun tracé sur la carte, pas de parcours conseillé).
+async function enterVisitorMode() {
+  try {
+    if (!tracesLoaded) await loadTraces();
+    unlockedTraces = [];
+    TRACE_LIST.forEach(t => {
+      t.validated = false;
+      if (t._polygon && homeMap) homeMap.removeLayer(t._polygon); // efface les tracés d'une session précédente
+      t._polygon = null;
+    });
+    document.body.classList.add('is-visitor');
+    document.getElementById('nav-logout-link').textContent = 'Se connecter';
+    loadingScreen.style.display = 'none';
+    renderHome();
+    watchAllParticipantCounts();
+    watchAllRatings();
+    watchLeaderboard();
+    watchGallery();
+    watchNews();
+    watchSiteStats();
+    loadWeather();
+    renderTraceList();
+    showHome();
+  } catch (e) {
+    loadingScreen.style.display = 'flex';
+    loadingScreen.textContent = 'Erreur de chargement des parcours : ' + e.message;
+  }
+}
 
 onAuthStateChanged(auth, async (user) => {
   currentUser = user;
   if (user) {
+    document.body.classList.remove('is-visitor');
+    document.getElementById('nav-logout-link').textContent = 'Déconnexion';
     try {
       if (!tracesLoaded) await loadTraces();
       await loadUnlockedTraces();
@@ -1651,8 +1721,7 @@ onAuthStateChanged(auth, async (user) => {
     if (unsubSiteStats) unsubSiteStats();
     unsubHomeCounts.forEach(u => u());
     unsubHomeCounts = [];
-    loadingScreen.style.display = 'none';
-    showGate();
+    enterVisitorMode();
   }
 });
 
