@@ -1543,6 +1543,7 @@ function openTrace(id) {
 
   resetValidationForm();
   voteModal.style.display = 'none';
+  returnHomeAfterVote = false;
   isValidatedForCurrentTrace = false;
   isVotedForCurrentTrace = false;
   myVoteStatus.textContent = '';
@@ -1926,6 +1927,7 @@ const validateBtn = document.getElementById('validate-btn');
 const voteModal = document.getElementById('vote-modal');
 const myVoteStatus = document.getElementById('my-vote-status');
 
+let returnHomeAfterVote = false; // vrai juste après une validation : on revient à l'accueil une fois le vote envoyé
 let isValidatedForCurrentTrace = false;
 let isVotedForCurrentTrace = false;
 
@@ -2035,7 +2037,12 @@ async function performValidation(source, durationSeconds) {
     validateMsg.textContent = source === 'gpx' ? 'Validé automatiquement via votre trace GPX !' : 'Validation enregistrée !';
     isValidatedForCurrentTrace = true;
     unlockNearbyTraces(currentTraceId);
-    maybeShowVoteModal();
+    if (isVotedForCurrentTrace) {
+      setTimeout(showHome, 800); // déjà noté : retour direct à l'accueil
+    } else {
+      returnHomeAfterVote = true; // retour à l'accueil dès que le vote est envoyé
+      maybeShowVoteModal();
+    }
   } catch (e) {
     validateMsg.className = 'msg err'; validateMsg.textContent = 'Erreur : ' + e.code;
   }
@@ -2244,7 +2251,10 @@ document.getElementById('submit-vote').addEventListener('click', async () => {
     isVotedForCurrentTrace = true;
     status.className = 'msg ok'; status.textContent = 'Merci pour votre vote !';
     myVoteStatus.textContent = '✓ Vous avez déjà noté ce parcours.';
-    setTimeout(() => { voteModal.style.display = 'none'; }, 900);
+    setTimeout(() => {
+      voteModal.style.display = 'none';
+      if (returnHomeAfterVote) { returnHomeAfterVote = false; showHome(); }
+    }, 900);
   } catch (e) {
     status.className = 'msg err'; status.textContent = 'Erreur : ' + e.code;
     btn.disabled = false;
