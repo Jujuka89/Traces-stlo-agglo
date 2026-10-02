@@ -913,6 +913,27 @@ const parkingIcon = L.divIcon({
   iconAnchor: [8, 8]
 });
 
+// Survol d'un tracé : copie mise en évidence sur un calque supérieur (hoverPane).
+// Elle est retirée quand la souris quitte la copie ; un clic dessus ouvre la fiche du parcours.
+let homeHoverClone = null;
+function clearHomeHover() {
+  if (homeHoverClone && homeMap) homeMap.removeLayer(homeHoverClone);
+  homeHoverClone = null;
+}
+function showHomeHover(t) {
+  clearHomeHover();
+  const tr = TRACES[t.id];
+  if (!tr || !homeMap) return;
+  const look = t.validated
+    ? { color: '#3DDC84', fillColor: '#3DDC84', fillOpacity: 0.7 }
+    : { color: '#FF5A1F', fillColor: '#FF5A1F', fillOpacity: 0.5 };
+  const clone = L.polygon(tr.coords, Object.assign({ pane: 'hoverPane', weight: 4.5, lineJoin: 'round', className: 'home-trace' }, look)).addTo(homeMap);
+  clone.bindTooltip(t.name, { sticky: true, direction: 'top', className: 'trace-tooltip' });
+  clone.on('click', () => { clearHomeHover(); openTrace(t.id); });
+  clone.on('mouseout', clearHomeHover);
+  homeHoverClone = clone;
+}
+
 // Les tracés validés (verts) passent toujours au-dessus des tracés non validés (orange)
 function restackHomeTraces() {
   TRACE_LIST.forEach(t => { if (t.validated && t._polygon) t._polygon.bringToFront(); });
@@ -931,9 +952,8 @@ function renderHomeTraces() {
     t._polygon = poly;
     poly.bindTooltip(t.name, { sticky: true, direction: 'top', className: 'trace-tooltip' });
     poly.on('click', () => openTrace(t.id));
-    // Survol : le tracé s'épaissit et se remplit davantage
-    poly.on('mouseover', () => { poly.setStyle({ weight: 4.5, fillOpacity: t.validated ? 0.7 : 0.5 }); poly.bringToFront(); });
-    poly.on('mouseout', () => { poly.setStyle({ weight: 2.5, fillOpacity: t.validated ? 0.4 : 0.22 }); restackHomeTraces(); });
+    // Survol : une copie plus épaisse du tracé s'affiche sur un calque tout en haut (au-dessus des verts aussi)
+    poly.on('mouseover', () => showHomeHover(t));
     allBounds.push(poly.getBounds());
   });
   return allBounds;
@@ -1028,6 +1048,8 @@ function renderHome() {
   homeMap.createPane('aggloPane');
   homeMap.getPane('aggloPane').style.zIndex = 350;
   homeMap.getPane('aggloPane').style.pointerEvents = 'none';
+  homeMap.createPane('hoverPane');                 // calque de survol : au-dessus de tous les tracés
+  homeMap.getPane('hoverPane').style.zIndex = 450;
   aggloLayer = L.layerGroup().addTo(homeMap);
   L.control.layers(baseMaps, { '⬜ Limite de Saint-Lô Agglo': aggloLayer }, { position: 'topright', collapsed: true }).addTo(homeMap);
   buildAggloOutline();
