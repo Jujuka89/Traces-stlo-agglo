@@ -54,6 +54,12 @@
     "distance_km": 25.54
   },
   {
+    "id": "la_meauffe",
+    "name": "La Meauffe",
+    "subtitle": "",
+    "distance_km": 28.32
+  },
+  {
     "id": "le_mesnil_rouxelin",
     "name": "Le Mesnil Rouxelin",
     "subtitle": "",
