@@ -390,7 +390,7 @@
       <option value="points">⭐ Points</option>
     </select>
     <div id="leaderboard-points-legend" style="display:none; font-size:12px; color:var(--text-dim); margin:-4px 0 16px;">
-      20 pts par parcours validé · +5 pts si photo envoyée · +5 pts si trace GPX envoyée
+      20 pts par parcours validé · +2 pts si photo envoyée · +5 pts si trace GPX envoyée
     </div>
     <div id="leaderboard-list"><div style="color:var(--moss);">Chargement…</div></div>
   </div>
@@ -601,6 +601,11 @@ const galleryView = document.getElementById('gallery-view');
 const participantView = document.getElementById('participant-view');
 const loadingScreen = document.getElementById('loading-screen');
 
+// Barème des points (utilisé par le classement, les fiches participants et la légende)
+const POINTS_PARCOURS = 20; // par parcours validé
+const POINTS_GPX = 5;       // par trace GPX envoyée et reconnue
+const POINTS_PHOTO = 2;     // par photo envoyée
+
 let unsubLeaderboard = null;
 let participantsIndex = {};
 let lastLeaderboardData = [];
@@ -624,9 +629,9 @@ function watchLeaderboard() {
       const trace = TRACES[traceId];
       if (trace) counts[uid].totalDist += trace.stats.distance_km;
 
-      let pts = 20; // parcours validé
-      if (data.photo) pts += 5;   // photo envoyée
-      if (data.viaGpx) pts += 5;  // trace GPX envoyée et reconnue
+      let pts = POINTS_PARCOURS; // parcours validé
+      if (data.photo) pts += POINTS_PHOTO;   // photo envoyée
+      if (data.viaGpx) pts += POINTS_GPX;    // trace GPX envoyée et reconnue
       counts[uid].points += pts;
 
       if (!index[uid]) index[uid] = { nom, entries: [] };
@@ -1206,9 +1211,9 @@ function openParticipant(uid) {
     };
   });
 
-  const parcoursPts = p.entries.length * 20;
-  const photoPts = photoCount * 5;
-  const gpxPts = gpxCount * 5;
+  const parcoursPts = p.entries.length * POINTS_PARCOURS;
+  const photoPts = photoCount * POINTS_PHOTO;
+  const gpxPts = gpxCount * POINTS_GPX;
   const totalPts = parcoursPts + photoPts + gpxPts;
 
   document.getElementById('participant-stats').innerHTML = [
@@ -1220,9 +1225,9 @@ function openParticipant(uid) {
   ].map(s => '<div class="stat-card"><div class="stat-value">' + s.value + '</div><div class="stat-label">' + s.label + '</div></div>').join('');
 
   document.getElementById('participant-points-detail').innerHTML =
-    '<div>🏁 ' + p.entries.length + ' parcours × 20 pts = <strong style="color:var(--text);">' + parcoursPts + ' pts</strong></div>' +
-    '<div>📷 ' + photoCount + ' photo' + (photoCount > 1 ? 's' : '') + ' × 5 pts = <strong style="color:var(--text);">' + photoPts + ' pts</strong></div>' +
-    '<div>🛰️ ' + gpxCount + ' trace' + (gpxCount > 1 ? 's' : '') + ' GPX × 5 pts = <strong style="color:var(--text);">' + gpxPts + ' pts</strong></div>';
+    '<div>🏁 ' + p.entries.length + ' parcours × ' + POINTS_PARCOURS + ' pts = <strong style="color:var(--text);">' + parcoursPts + ' pts</strong></div>' +
+    '<div>📷 ' + photoCount + ' photo' + (photoCount > 1 ? 's' : '') + ' × ' + POINTS_PHOTO + ' pts = <strong style="color:var(--text);">' + photoPts + ' pts</strong></div>' +
+    '<div>🛰️ ' + gpxCount + ' trace' + (gpxCount > 1 ? 's' : '') + ' GPX × ' + POINTS_GPX + ' pts = <strong style="color:var(--text);">' + gpxPts + ' pts</strong></div>';
 
   const galleryTitle = document.getElementById('participant-gallery-title');
   const galleryEl = document.getElementById('participant-gallery');
