@@ -913,6 +913,11 @@ const parkingIcon = L.divIcon({
   iconAnchor: [8, 8]
 });
 
+// Les tracés validés (verts) passent toujours au-dessus des tracés non validés (orange)
+function restackHomeTraces() {
+  TRACE_LIST.forEach(t => { if (t.validated && t._polygon) t._polygon.bringToFront(); });
+}
+
 function renderHomeTraces() {
   const allBounds = [];
   TRACE_LIST.forEach(t => {
@@ -928,7 +933,7 @@ function renderHomeTraces() {
     poly.on('click', () => openTrace(t.id));
     // Survol : le tracé s'épaissit et se remplit davantage
     poly.on('mouseover', () => { poly.setStyle({ weight: 4.5, fillOpacity: t.validated ? 0.7 : 0.5 }); poly.bringToFront(); });
-    poly.on('mouseout', () => { poly.setStyle({ weight: 2.5, fillOpacity: t.validated ? 0.4 : 0.22 }); });
+    poly.on('mouseout', () => { poly.setStyle({ weight: 2.5, fillOpacity: t.validated ? 0.4 : 0.22 }); restackHomeTraces(); });
     allBounds.push(poly.getBounds());
   });
   return allBounds;
@@ -1176,6 +1181,7 @@ function watchAllParticipantCounts() {
         t._polygon.setStyle(t.validated
           ? { color: '#3DDC84', fillColor: '#3DDC84', fillOpacity: 0.4 }
           : { color: '#FF5A1F', fillColor: '#FF5A1F', fillOpacity: 0.22 });
+        restackHomeTraces();
       }
       renderTraceList();
     }, (e) => { /* ignore les erreurs de lecture ici, la fiche du parcours les affichera */ })
@@ -1216,6 +1222,7 @@ async function refreshHomeColors() {
       t._polygon.setStyle(snap.exists()
         ? { color: '#3DDC84', fillColor: '#3DDC84', fillOpacity: 0.4 }
         : { color: '#FF5A1F', fillColor: '#FF5A1F', fillOpacity: 0.22 });
+      if (snap.exists()) t._polygon.bringToFront(); // validé : au-dessus des tracés non validés
     } catch (e) { /* reste en rouge si la lecture échoue */ }
   }
 }
@@ -2030,6 +2037,7 @@ async function performValidation(source, durationSeconds) {
     const homeTrace = TRACE_LIST.find(t => t.id === currentTraceId);
     if (homeTrace && homeTrace._polygon) {
       homeTrace._polygon.setStyle({ color: '#3DDC84', fillColor: '#3DDC84', fillOpacity: 0.4 });
+      homeTrace._polygon.bringToFront();
     }
     validateBtn.textContent = 'Parcours validé ✓';
     validateBtn.disabled = true;
