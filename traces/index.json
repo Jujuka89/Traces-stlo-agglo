@@ -54,6 +54,12 @@
     "distance_km": 25.54
   },
   {
+    "id": "le_mesnil_rouxelin",
+    "name": "Le Mesnil Rouxelin",
+    "subtitle": "",
+    "distance_km": 24.77
+  },
+  {
     "id": "moyon_village",
     "name": "Moyon Village",
     "subtitle": "",
