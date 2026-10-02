@@ -937,38 +937,56 @@ function renderHomeTraces() {
 let aggloLayer = null;
 let aggloBuilt = false;
 
-// Calcule le contour extérieur de l'ensemble des tracés (union des polygones, sans les trous internes)
-function buildAggloOutline() {
-  if (aggloBuilt || !aggloLayer || !window.turf) return;
+// Limite officielle de Saint-Lô Agglo : contours officiels des communes membres (geo.api.gouv.fr,
+// données IGN/Etalab), fusionnés en une seule forme dont on ne garde que le bord extérieur.
+const AGGLO_EPCI_CODE = '200066389';
+const AGGLO_CACHE_KEY = 'vtt_agglo_outline_v1';
+
+function drawAggloOutline(geometry) {
+  L.geoJSON(geometry, {
+    pane: 'aggloPane', interactive: false,
+    style: { color: '#CFCFCF', weight: 1.5, opacity: 0.9, fill: false, className: 'agglo-outline' }
+  }).addTo(aggloLayer);
+}
+
+async function buildAggloOutline() {
+  if (aggloBuilt || !aggloLayer) return;
   aggloBuilt = true;
-  setTimeout(() => { // après l'affichage de la carte, pour ne pas ralentir le chargement
-    try {
-      let merged = null;
-      TRACE_LIST.forEach(t => {
-        const tr = TRACES[t.id];
-        if (!tr || !tr.coords || tr.coords.length < 3) return;
-        try {
-          const ring = tr.coords.map(c => [c[1], c[0]]); // [lat, lon] -> [lon, lat]
-          const first = ring[0], last = ring[ring.length - 1];
-          if (first[0] !== last[0] || first[1] !== last[1]) ring.push(first);
-          let poly = turf.polygon([ring]);
-          poly = turf.simplify(poly, { tolerance: 0.0003, highQuality: false }); // ~30 m, suffisant pour un contour
-          poly = turf.buffer(poly, 0.03, { units: 'kilometers' });               // referme les petits écarts entre tracés voisins
-          if (!merged) merged = poly;
-          else { const u = turf.union(merged, poly); if (u) merged = u; }
-        } catch (e) { /* tracé invalide : ignoré */ }
-      });
-      if (!merged) return;
-      const g = merged.geometry;
-      const outer = (g.type === 'Polygon')
+
+  // Déjà calculé lors d'une visite précédente : affichage immédiat, sans réseau
+  try {
+    const cached = localStorage.getItem(AGGLO_CACHE_KEY);
+    if (cached) { drawAggloOutline(JSON.parse(cached)); return; }
+  } catch (e) { /* stockage indisponible : on recalcule */ }
+
+  if (!window.turf) return;
+  try {
+    const res = await fetch('https://geo.api.gouv.fr/communes?codeEpci=' + AGGLO_EPCI_CODE + '&format=geojson&geometry=contour&fields=nom');
+    if (!res.ok) return;
+    const fc = await res.json();
+    if (!fc.features || !fc.features.length) return;
+
+    let merged = null;
+    for (const f of fc.features) {
+      try {
+        if (!merged) merged = f;
+        else { const u = turf.union(merged, f); if (u) merged = u; }
+      } catch (e) { /* commune ignorée si géométrie invalide */ }
+    }
+    if (!merged) return;
+
+    // On ne garde que les bords extérieurs (pas de trous internes), puis on allège légèrement le tracé
+    const g = merged.geometry;
+    const outerFeature = {
+      type: 'Feature', properties: {},
+      geometry: (g.type === 'Polygon')
         ? { type: 'Polygon', coordinates: [g.coordinates[0]] }
-        : { type: 'MultiPolygon', coordinates: g.coordinates.map(p => [p[0]]) }; // on garde uniquement les bords extérieurs
-      L.geoJSON(outer, {
-        pane: 'aggloPane', interactive: false,
-        style: { color: '#CFCFCF', weight: 2.5, opacity: 0.9, fill: false, className: 'agglo-outline' }
-      }).addTo(aggloLayer);
-    } catch (e) { /* le contour est facultatif */ }
-  }, 300);
+        : { type: 'MultiPolygon', coordinates: g.coordinates.map(p => [p[0]]) }
+    };
+    const simple = turf.simplify(outerFeature, { tolerance: 0.0002, highQuality: false }); // ~20 m
+    drawAggloOutline(simple.geometry);
+    try { localStorage.setItem(AGGLO_CACHE_KEY, JSON.stringify(simple.geometry)); } catch (e) { /* ignoré */ }
+  } catch (e) { /* le contour est facultatif : la carte fonctionne sans */ }
 }
 
 function renderHome() {
@@ -1001,12 +1019,12 @@ function renderHome() {
   };
   baseMaps['🌙 Sombre'].addTo(homeMap);
 
-  // Contour extérieur de l'agglo : fusion de tous les tracés (même verrouillés), sous les tracés affichés
+  // Limite officielle de l'agglo (sous les tracés affichés)
   homeMap.createPane('aggloPane');
   homeMap.getPane('aggloPane').style.zIndex = 350;
   homeMap.getPane('aggloPane').style.pointerEvents = 'none';
   aggloLayer = L.layerGroup().addTo(homeMap);
-  L.control.layers(baseMaps, { '⬜ Contour de l\'agglo': aggloLayer }, { position: 'topright', collapsed: true }).addTo(homeMap);
+  L.control.layers(baseMaps, { '⬜ Limite de Saint-Lô Agglo': aggloLayer }, { position: 'topright', collapsed: true }).addTo(homeMap);
   buildAggloOutline();
 
   const allBounds = renderHomeTraces();
