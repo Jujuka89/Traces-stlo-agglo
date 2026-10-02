@@ -137,6 +137,13 @@
   }
   .trace-tooltip::before { border-top-color: var(--line) !important; }
   .leaflet-popup-tip { background: var(--surface); }
+  /* Tracés de la carte d'accueil : léger halo lumineux + transitions douces */
+  #home-map path.home-trace { filter: drop-shadow(0 0 5px rgba(255,90,31,0.55)); transition: fill-opacity 0.15s ease, stroke-width 0.15s ease; }
+  #home-map path.home-trace[stroke="#3DDC84"] { filter: drop-shadow(0 0 5px rgba(61,220,132,0.6)); }
+  #home-map .leaflet-control-layers, #home-map .leaflet-bar { border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+  #home-map .leaflet-control-layers { background: var(--surface); color: var(--text); font-family: "Inter", sans-serif; font-size: 13px; }
+  #home-map .leaflet-bar a { background: var(--surface); color: var(--text); border-bottom-color: var(--line); }
+  #home-map .leaflet-bar a:hover { background: var(--accent-soft); }
   .start-marker-inner {
     width: 32px; height: 32px;
     display: flex; align-items: center; justify-content: center; font-size: 24px;
@@ -910,10 +917,16 @@ function renderHomeTraces() {
     if (!isTraceUnlocked(t.id)) return; // masqué tant que non débloqué
     if (t._polygon) { allBounds.push(t._polygon.getBounds()); return; } // déjà affiché
     const fullTrace = TRACES[t.id];
-    const poly = L.polygon(fullTrace.coords, { color: '#FF5A1F', weight: 3, fillColor: '#FF8659', fillOpacity: 0.3 }).addTo(homeMap);
+    const poly = L.polygon(fullTrace.coords, {
+      color: '#FF5A1F', weight: 2.5, fillColor: '#FF5A1F', fillOpacity: 0.22,
+      lineJoin: 'round', className: 'home-trace'
+    }).addTo(homeMap);
     t._polygon = poly;
     poly.bindTooltip(t.name, { sticky: true, direction: 'top', className: 'trace-tooltip' });
     poly.on('click', () => openTrace(t.id));
+    // Survol : le tracé s'épaissit et se remplit davantage
+    poly.on('mouseover', () => { poly.setStyle({ weight: 4.5, fillOpacity: t.validated ? 0.7 : 0.5 }); poly.bringToFront(); });
+    poly.on('mouseout', () => { poly.setStyle({ weight: 2.5, fillOpacity: t.validated ? 0.4 : 0.22 }); });
     allBounds.push(poly.getBounds());
   });
   return allBounds;
@@ -928,11 +941,19 @@ function renderHome() {
     setTimeout(() => homeMap.invalidateSize(), 50);
     return;
   }
-  homeMap = L.map('home-map');
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-  }).addTo(homeMap);
+  homeMap = L.map('home-map', { zoomControl: false });
+  L.control.zoom({ position: 'bottomright' }).addTo(homeMap);
+
+  // Fonds de carte (gratuits) : sombre par défaut pour s'accorder au site, avec sélecteur
+  const cartoAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+  const baseMaps = {
+    '🌙 Sombre': L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20, attribution: cartoAttr }),
+    '☀️ Clair': L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20, attribution: cartoAttr }),
+    '🛰️ Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' }),
+    '⛰️ Relief': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { subdomains: 'abc', maxZoom: 17, attribution: '&copy; OpenStreetMap contributors, SRTM | &copy; <a href="https://opentopomap.org">OpenTopoMap</a>' })
+  };
+  baseMaps['🌙 Sombre'].addTo(homeMap);
+  L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(homeMap);
 
   const allBounds = renderHomeTraces();
 
@@ -1081,8 +1102,8 @@ function watchAllParticipantCounts() {
       t.validated = currentUser ? snap.docs.some(d => d.id === currentUser.uid) : false;
       if (t._polygon) {
         t._polygon.setStyle(t.validated
-          ? { color: '#3DDC84', fillColor: '#0F4025', fillOpacity: 0.65 }
-          : { color: '#FF5A1F', fillColor: '#FF8659', fillOpacity: 0.3 });
+          ? { color: '#3DDC84', fillColor: '#3DDC84', fillOpacity: 0.4 }
+          : { color: '#FF5A1F', fillColor: '#FF5A1F', fillOpacity: 0.22 });
       }
       renderTraceList();
     }, (e) => { /* ignore les erreurs de lecture ici, la fiche du parcours les affichera */ })
@@ -1121,8 +1142,8 @@ async function refreshHomeColors() {
     try {
       const snap = await getDoc(doc(db, 'traces', t.id, 'validations', currentUser.uid));
       t._polygon.setStyle(snap.exists()
-        ? { color: '#3DDC84', fillColor: '#0F4025', fillOpacity: 0.65 }
-        : { color: '#FF5A1F', fillColor: '#FF8659', fillOpacity: 0.3 });
+        ? { color: '#3DDC84', fillColor: '#3DDC84', fillOpacity: 0.4 }
+        : { color: '#FF5A1F', fillColor: '#FF5A1F', fillOpacity: 0.22 });
     } catch (e) { /* reste en rouge si la lecture échoue */ }
   }
 }
@@ -1934,7 +1955,7 @@ async function performValidation(source, durationSeconds) {
     setTrackValidated(true);
     const homeTrace = TRACE_LIST.find(t => t.id === currentTraceId);
     if (homeTrace && homeTrace._polygon) {
-      homeTrace._polygon.setStyle({ color: '#3DDC84', fillColor: '#0F4025', fillOpacity: 0.65 });
+      homeTrace._polygon.setStyle({ color: '#3DDC84', fillColor: '#3DDC84', fillOpacity: 0.4 });
     }
     validateBtn.textContent = 'Parcours validé ✓';
     validateBtn.disabled = true;
