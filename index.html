@@ -140,7 +140,8 @@
   /* Tracés de la carte d'accueil : léger halo lumineux + transitions douces */
   #home-map path.home-trace { filter: drop-shadow(0 0 5px rgba(255,90,31,0.55)); transition: fill-opacity 0.15s ease, stroke-width 0.15s ease; }
   #home-map path.home-trace[stroke="#3DDC84"] { filter: drop-shadow(0 0 5px rgba(61,220,132,0.6)); }
-  #home-map .leaflet-control-layers, #home-map .leaflet-bar { border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+  #home-map path.agglo-outline { filter: drop-shadow(0 0 2px rgba(0,0,0,0.75)); }
+  #home-map .leaflet-control-layers,#home-map .leaflet-bar { border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
   #home-map .leaflet-control-layers { background: var(--surface); color: var(--text); font-family: "Inter", sans-serif; font-size: 13px; }
   #home-map .leaflet-bar a { background: var(--surface); color: var(--text); border-bottom-color: var(--line); }
   #home-map .leaflet-bar a:hover { background: var(--accent-soft); }
@@ -528,6 +529,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
+<script defer src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -932,6 +934,43 @@ function renderHomeTraces() {
   return allBounds;
 }
 
+let aggloLayer = null;
+let aggloBuilt = false;
+
+// Calcule le contour extérieur de l'ensemble des tracés (union des polygones, sans les trous internes)
+function buildAggloOutline() {
+  if (aggloBuilt || !aggloLayer || !window.turf) return;
+  aggloBuilt = true;
+  setTimeout(() => { // après l'affichage de la carte, pour ne pas ralentir le chargement
+    try {
+      let merged = null;
+      TRACE_LIST.forEach(t => {
+        const tr = TRACES[t.id];
+        if (!tr || !tr.coords || tr.coords.length < 3) return;
+        try {
+          const ring = tr.coords.map(c => [c[1], c[0]]); // [lat, lon] -> [lon, lat]
+          const first = ring[0], last = ring[ring.length - 1];
+          if (first[0] !== last[0] || first[1] !== last[1]) ring.push(first);
+          let poly = turf.polygon([ring]);
+          poly = turf.simplify(poly, { tolerance: 0.0003, highQuality: false }); // ~30 m, suffisant pour un contour
+          poly = turf.buffer(poly, 0.03, { units: 'kilometers' });               // referme les petits écarts entre tracés voisins
+          if (!merged) merged = poly;
+          else { const u = turf.union(merged, poly); if (u) merged = u; }
+        } catch (e) { /* tracé invalide : ignoré */ }
+      });
+      if (!merged) return;
+      const g = merged.geometry;
+      const outer = (g.type === 'Polygon')
+        ? { type: 'Polygon', coordinates: [g.coordinates[0]] }
+        : { type: 'MultiPolygon', coordinates: g.coordinates.map(p => [p[0]]) }; // on garde uniquement les bords extérieurs
+      L.geoJSON(outer, {
+        pane: 'aggloPane', interactive: false,
+        style: { color: '#CFCFCF', weight: 2.5, opacity: 0.9, fill: false, className: 'agglo-outline' }
+      }).addTo(aggloLayer);
+    } catch (e) { /* le contour est facultatif */ }
+  }, 300);
+}
+
 function renderHome() {
   if (homeMap) {
     // Carte déjà créée (ex. mode visiteur puis connexion) : on ajoute les tracés désormais débloqués
@@ -961,7 +1000,14 @@ function renderHome() {
     '⛰️ Relief': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { subdomains: 'abc', maxZoom: 17, attribution: '&copy; OpenStreetMap contributors, SRTM | &copy; <a href="https://opentopomap.org">OpenTopoMap</a>' })
   };
   baseMaps['🌙 Sombre'].addTo(homeMap);
-  L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(homeMap);
+
+  // Contour extérieur de l'agglo : fusion de tous les tracés (même verrouillés), sous les tracés affichés
+  homeMap.createPane('aggloPane');
+  homeMap.getPane('aggloPane').style.zIndex = 350;
+  homeMap.getPane('aggloPane').style.pointerEvents = 'none';
+  aggloLayer = L.layerGroup().addTo(homeMap);
+  L.control.layers(baseMaps, { '⬜ Contour de l\'agglo': aggloLayer }, { position: 'topright', collapsed: true }).addTo(homeMap);
+  buildAggloOutline();
 
   const allBounds = renderHomeTraces();
 
