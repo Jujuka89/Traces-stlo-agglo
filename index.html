@@ -872,6 +872,8 @@ let homeMap = null;
 const PARKING_POINTS = [
   { lat: 49.091577, lon: -1.118097, name: 'Parking' }
 ];
+const PARKING_MAX_DISTANCE_M = 100; // un parking n'apparaît sur une fiche que s'il est à moins de 100 m de la trace
+let parkingMarkers = [];
 const parkingIcon = L.divIcon({
   className: '',
   html: '<div class="start-marker-inner" style="font-size:22px;">🅿️</div>',
@@ -903,10 +905,6 @@ function renderHome() {
   }).addTo(homeMap);
 
   const allBounds = renderHomeTraces();
-
-  PARKING_POINTS.forEach(p => {
-    L.marker([p.lat, p.lon], { icon: parkingIcon }).addTo(homeMap).bindPopup('<b>' + p.name + '</b>');
-  });
 
   if (allBounds.length) {
     let bounds = allBounds[0];
@@ -1456,6 +1454,18 @@ function initOrUpdateMap(trace) {
       })
     }]
   }).addTo(map);
+
+  // Parkings : affichés uniquement s'ils sont à moins de 100 m d'un point de la trace
+  parkingMarkers.forEach(m => map.removeLayer(m));
+  parkingMarkers = [];
+  PARKING_POINTS.forEach(p => {
+    const near = trace.coords.some(c => haversineMeters(p.lat, p.lon, c[0], c[1]) <= PARKING_MAX_DISTANCE_M);
+    if (near) {
+      parkingMarkers.push(
+        L.marker([p.lat, p.lon], { icon: parkingIcon }).addTo(map).bindPopup('<b>' + p.name + '</b>')
+      );
+    }
+  });
 
   map.fitBounds(track.getBounds(), { padding: [20, 20] });
 }
