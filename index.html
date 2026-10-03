@@ -506,21 +506,6 @@
   </div>
 </div>
 
-<div id="visitor-welcome-modal" style="display:none; position:fixed; inset:0; background:rgba(8,9,11,0.9); z-index:3800; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
-  <div style="background:var(--surface); border:1px solid var(--accent); border-radius:16px; padding:28px; max-width:400px; width:100%; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
-    <div style="font-size:40px; margin-bottom:10px;">🚵</div>
-    <div style="font-family:'Space Grotesk',sans-serif; font-size:21px; font-weight:700; margin-bottom:10px; color:var(--text);">Challenge VTT Saint-Lô Agglo</div>
-    <div style="font-size:14px; color:var(--text-dim); line-height:1.6; margin-bottom:10px; text-align:left;">
-      Participez au challenge VTT des communes de l'agglo de Saint-Lô : plus de 60 tracés à découvrir, pour tous niveaux !
-    </div>
-    <div style="font-size:14px; color:var(--text-dim); line-height:1.6; margin-bottom:20px; text-align:left;">
-      Créez un compte pour choisir votre premier parcours et débloquer progressivement les suivants. Pas de classement officiel, juste pour le fun et l'aventure 🌳
-    </div>
-    <button class="btn btn-primary" id="visitor-welcome-join" style="width:100%; margin-bottom:10px;">Créer mon compte</button>
-    <button class="back-btn" id="visitor-welcome-later" style="width:100%; justify-content:center;">Visiter sans compte</button>
-  </div>
-</div>
-
 <div id="unlock-modal" style="display:none; position:fixed; inset:0; background:rgba(8,9,11,0.85); z-index:3700; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
   <div style="background:var(--surface); border:1px solid var(--validated); border-radius:16px; padding:28px; max-width:380px; width:100%; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
     <div style="font-size:38px; margin-bottom:8px;">🎉</div>
@@ -1807,34 +1792,11 @@ async function enterVisitorMode() {
     loadWeather();
     renderTraceList();
     showHome();
-    showVisitorWelcomeIfNeeded();
   } catch (e) {
     loadingScreen.style.display = 'flex';
     loadingScreen.textContent = 'Erreur de chargement des parcours : ' + e.message;
   }
 }
-
-const VISITOR_WELCOME_KEY = 'vtt_visitor_welcome_seen';
-
-function showVisitorWelcomeIfNeeded() {
-  try {
-    if (localStorage.getItem(VISITOR_WELCOME_KEY)) return;
-  } catch (e) { /* localStorage indisponible : on affiche quand même */ }
-  const modal = document.getElementById('visitor-welcome-modal');
-  if (modal) modal.style.display = 'flex';
-}
-
-function dismissVisitorWelcome() {
-  const modal = document.getElementById('visitor-welcome-modal');
-  if (modal) modal.style.display = 'none';
-  try { localStorage.setItem(VISITOR_WELCOME_KEY, '1'); } catch (e) {}
-}
-
-document.getElementById('visitor-welcome-join').addEventListener('click', () => {
-  dismissVisitorWelcome();
-  showGate();
-});
-document.getElementById('visitor-welcome-later').addEventListener('click', dismissVisitorWelcome);
 
 onAuthStateChanged(auth, async (user) => {
   currentUser = user;
@@ -2176,4 +2138,57 @@ function parseGpxData(gpxText) {
     if (durationSeconds <= 0) durationSeconds = null; // horodatage incohérent, on ignore
   }
 
+  return { coords, durationSeconds };
+}
 
+document.getElementById('gpx-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  const msg = document.getElementById('gpx-check-msg');
+  if (!file) return;
+  if (!currentTraceId || !TRACES[currentTraceId]) return;
+
+  msg.className = 'msg'; msg.textContent = 'Analyse de votre trace…';
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const parsed = parseGpxData(ev.target.result);
+    if (!parsed) {
+      msg.className = 'msg err';
+      msg.textContent = 'Fichier GPX illisible ou vide.';
+      gpxVerified = false;
+      updateValidateButtonState();
+      return;
+    }
+    const reference = TRACES[currentTraceId].coords;
+    const pct = gpxMatchPercentage(reference, parsed.coords, GPX_MATCH_TOLERANCE_M);
+    const hasDuration = !!parsed.durationSeconds;
+    const durationText = hasDuration ? ' · Temps : ' + formatDuration(parsed.durationSeconds) : '';
+    lastGpxDurationSeconds = parsed.durationSeconds;
+
+    if (pct >= GPX_MATCH_THRESHOLD_PCT && hasDuration) {
+      msg.className = 'msg ok';
+      msg.textContent = 'Trace reconnue à ' + pct.toFixed(0) + '% du circuit ✓' + durationText + ' — vous pouvez valider.';
+      gpxVerified = true;
+    } else if (pct >= GPX_MATCH_THRESHOLD_PCT && !hasDuration) {
+      msg.className = 'msg err';
+      msg.textContent = 'Cette trace ne contient pas d\'horodatage : ce n\'est pas un enregistrement de votre sortie (probablement le fichier du circuit lui-même). Utilisez l\'export GPX de votre montre/appli GPS, ou ajoutez une photo.';
+      gpxVerified = false;
+    } else {
+      msg.className = 'msg err';
+      msg.textContent = 'Seulement ' + pct.toFixed(0) + '% du circuit reconnu dans votre trace (minimum ' +
+        GPX_MATCH_THRESHOLD_PCT + '% requis)' + durationText + '. Ajoutez une photo pour valider malgré tout.';
+      gpxVerified = false;
+    }
+    updateValidateButtonState();
+  };
+  reader.onerror = () => {
+    msg.className = 'msg err'; msg.textContent = 'Impossible de lire ce fichier.';
+    gpxVerified = false;
+    updateValidateButtonState();
+  };
+  reader.readAsText(file);
+});
+
+/* ---------- TABLEAU + VOTES ---------- */
+const tbody = document.getElementById('participants-body');
+let unsubV
