@@ -2191,4 +2191,103 @@ document.getElementById('gpx-input').addEventListener('change', (e) => {
 
 /* ---------- TABLEAU + VOTES ---------- */
 const tbody = document.getElementById('participants-body');
-let unsubV
+let unsubValidations = null, unsubVotes = null;
+
+function watchTraceData(traceId) {
+  if (unsubValidations) unsubValidations();
+  if (unsubVotes) unsubVotes();
+
+  unsubValidations = onSnapshot(collection(db, 'traces', traceId, 'validations'), (snap) => {
+    const trace = TRACE_LIST.find(t => t.id === traceId);
+    if (trace) {
+      trace.participants = snap.size;
+      renderTraceList();
+    }
+
+    if (snap.empty) {
+      tbody.innerHTML = '<tr><td colspan="4" style="color:#9A9CA5;">Aucune validation pour le moment.</td></tr>';
+      return;
+    }
+    const rows = [];
+    snap.forEach(d => rows.push(d.data()));
+    rows.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
+    tbody.innerHTML = rows.map(r => {
+      const dateStr = r.date?.seconds ? new Date(r.date.seconds * 1000).toLocaleDateString('fr-FR') : '—';
+      const photo = r.photo ? '<img class="thumb" src="' + r.photo + '" data-full="' + r.photo + '">' : '<span style="color:#5A5C64;">—</span>';
+      const temps = r.dureeSecondes ? formatDuration(r.dureeSecondes) : '—';
+      return '<tr><td>' + photo + '</td><td>' + (r.nom || '—') + '</td><td>' + dateStr + '</td><td>' + temps + '</td></tr>';
+    }).join('');
+  }, (e) => { tbody.innerHTML = '<tr><td colspan="4" style="color:#FF5A1F;">Erreur : ' + e.code + '</td></tr>'; });
+
+  unsubVotes = onSnapshot(collection(db, 'traces', traceId, 'votes'), (snap) => {
+    let dSum = 0, aSum = 0, n = 0;
+    snap.forEach(d => {
+      const v = d.data();
+      if (typeof v.difficulte === 'number') { dSum += v.difficulte; aSum += v.appreciation; n++; }
+    });
+    const dAvg = n ? formatNote(dSum / n) : '--';
+    const aAvg = n ? formatNote(aSum / n) : '--';
+    const apprIcon = (n && (aSum / n) > 18) ? '❤️' : '⭐';
+    const ratingsEl = document.getElementById('map-ratings');
+    if (ratingsEl) {
+      if (n) {
+        const dLabel = labelForValue(Math.round(dSum / n), DIFFICULTY_LABELS);
+        const aLabel = labelForValue(Math.round(aSum / n), APPRECIATION_LABELS);
+        ratingsEl.textContent = apprIcon + ' ' + aAvg + '/20 ' + aLabel + ' · 💪 ' + dAvg + '/20 ' + dLabel +
+          ' (' + n + ' vote' + (n > 1 ? 's' : '') + ')';
+      } else {
+        ratingsEl.textContent = apprIcon + ' --/20 · 💪 --/20 (0 vote)';
+      }
+    }
+  });
+}
+
+/* ---------- LIGHTBOX ---------- */
+const lightbox = document.getElementById('lightbox');
+document.addEventListener('click', (e) => {
+  if (e.target.classList.contains('thumb')) {
+    document.getElementById('lightbox-img').src = e.target.dataset.full;
+    lightbox.style.display = 'flex';
+  } else if (e.target === lightbox || e.target.id === 'lightbox-img') {
+    lightbox.style.display = 'none';
+  }
+});
+
+/* ---------- VOTES : formulaire ---------- */
+document.getElementById('vote-diff').addEventListener('input', e => {
+  document.getElementById('vote-diff-val').textContent = e.target.value;
+  document.getElementById('vote-diff-label').textContent = labelForValue(parseInt(e.target.value, 10), DIFFICULTY_LABELS);
+});
+document.getElementById('vote-appr').addEventListener('input', e => {
+  document.getElementById('vote-appr-val').textContent = e.target.value;
+  document.getElementById('vote-appr-label').textContent = labelForValue(parseInt(e.target.value, 10), APPRECIATION_LABELS);
+});
+
+document.getElementById('submit-vote').addEventListener('click', async () => {
+  if (!currentUser || !currentTraceId || isVotedForCurrentTrace) return;
+  const status = document.getElementById('vote-status');
+  const btn = document.getElementById('submit-vote');
+  status.className = 'msg'; status.textContent = 'Envoi…';
+  btn.disabled = true;
+  try {
+    await setDoc(doc(db, 'traces', currentTraceId, 'votes', currentUser.uid), {
+      nom: currentUser.displayName || currentUser.email,
+      difficulte: parseInt(document.getElementById('vote-diff').value, 10),
+      appreciation: parseInt(document.getElementById('vote-appr').value, 10),
+      date: serverTimestamp()
+    });
+    isVotedForCurrentTrace = true;
+    status.className = 'msg ok'; status.textContent = 'Merci pour votre vote !';
+    myVoteStatus.textContent = '✓ Vous avez déjà noté ce parcours.';
+    setTimeout(() => {
+      voteModal.style.display = 'none';
+      if (returnHomeAfterVote) { returnHomeAfterVote = false; showHome(); }
+    }, 900);
+  } catch (e) {
+    status.className = 'msg err'; status.textContent = 'Erreur : ' + e.code;
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
