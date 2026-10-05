@@ -322,6 +322,9 @@
   <div class="content">
     <div class="home-grid">
       <div class="home-col-main">
+        <div style="text-align:center; margin-bottom:14px;">
+          <button class="btn btn-outline" id="about-project-btn" style="width:auto; display:inline-block; padding:10px 20px;">📖 Découvrir le projet</button>
+        </div>
         <div class="hero-panel">
           <p class="hero-stat">🚵 Des parcours VTT pour tous niveaux !</p>
           <p>Objectif : se faire plaisir et découvrir les différents villages et leurs paysages.</p>    
@@ -503,6 +506,27 @@
     <div style="font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:700; margin-bottom:10px; color:var(--text);" id="new-traces-title">Nouveau parcours !</div>
     <div id="new-traces-list" style="color:var(--text-dim); font-size:14px; margin-bottom:22px; line-height:1.5;"></div>
     <button class="btn btn-primary" id="new-traces-close" style="width:100%;">Découvrir</button>
+  </div>
+</div>
+
+<div id="about-project-modal" style="display:none; position:fixed; inset:0; background:rgba(8,9,11,0.9); z-index:3650; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+  <div style="background:var(--surface); border:1px solid var(--accent); border-radius:16px; padding:28px; max-width:460px; width:100%; max-height:85vh; overflow-y:auto; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+    <div style="font-family:'Space Grotesk',sans-serif; font-size:21px; font-weight:700; margin-bottom:4px; color:var(--text);">🚵 Saint-Lô Agglo en VTT</div>
+    <div style="font-size:14px; color:var(--text-dim); line-height:1.65; text-align:left;">
+      <p style="margin:12px 0;">Bienvenue dans le challenge <strong style="color:var(--text);">Saint-Lô Agglo en VTT</strong> !</p>
+      <p style="margin:12px 0;">Le principe est simple : découvrir le territoire de Saint-Lô Agglo à vélo et réaliser un maximum de parcours.</p>
+      <ul style="margin:12px 0; padding-left:20px; display:flex; flex-direction:column; gap:6px;">
+        <li>🏘️ 65 communes à découvrir</li>
+        <li>🚵 Un parcours VTT par commune</li>
+        <li>🗺️ Des traces GPX accessibles directement depuis la carte</li>
+        <li>🤝 Un challenge ouvert à tous les amateurs de VTT</li>
+        <li>📸 Possibilité de partager ses sorties et de valider ses parcours réalisés</li>
+      </ul>
+      <p style="margin:12px 0;">Choisissez un parcours, téléchargez la trace GPX, partez à l'aventure et découvrez les chemins, villages et paysages de l'Agglo.</p>
+      <p style="margin:12px 0;">Objectif : parcourir tout le territoire, commune après commune !</p>
+      <p style="margin:12px 0; color:var(--accent); font-weight:600;">À vous de jouer et de relever le challenge !</p>
+    </div>
+    <button class="btn btn-primary" id="about-project-close" style="width:100%; margin-top:10px;">Fermer</button>
   </div>
 </div>
 
@@ -1766,6 +1790,15 @@ document.getElementById('nav-logout-link').addEventListener('click', (e) => {
   if (currentUser) signOut(auth); else showGate();
 });
 document.getElementById('join-btn').addEventListener('click', showGate);
+
+document.getElementById('about-project-btn').addEventListener('click', () => {
+  const modal = document.getElementById('about-project-modal');
+  if (modal) modal.style.display = 'flex';
+});
+document.getElementById('about-project-close').addEventListener('click', () => {
+  const modal = document.getElementById('about-project-modal');
+  if (modal) modal.style.display = 'none';
+});
 document.getElementById('gate-back').addEventListener('click', (e) => { e.preventDefault(); showHome(); });
 
 // Mode visiteur : le site est visible, mais tous les parcours sont verrouillés
