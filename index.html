@@ -333,8 +333,11 @@
       </div>
 
       <div class="home-col-todo">
-        <div class="visitor-only">
-          <button class="btn btn-primary" id="join-btn">Participer au challenge</button>
+        <div style="display:flex; gap:10px;">
+          <div class="visitor-only" style="flex:1; display:flex;">
+            <button class="btn btn-primary" id="join-btn" style="flex:1;">Participer au challenge</button>
+          </div>
+          <button class="btn btn-outline" id="rules-btn" style="flex:1;">📋 Règlement</button>
         </div>
 
         <div class="member-only">
@@ -527,6 +530,14 @@
       <p style="margin:12px 0; color:var(--accent); font-weight:600;">À vous de jouer et de relever le challenge !</p>
     </div>
     <button class="btn btn-primary" id="about-project-close" style="width:100%; margin-top:10px;">Fermer</button>
+  </div>
+</div>
+
+<div id="rules-modal" style="display:none; position:fixed; inset:0; background:rgba(8,9,11,0.9); z-index:3650; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+  <div style="background:var(--surface); border:1px solid var(--accent); border-radius:16px; padding:28px; max-width:460px; width:100%; max-height:85vh; overflow-y:auto; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+    <div style="font-family:'Space Grotesk',sans-serif; font-size:21px; font-weight:700; margin-bottom:14px; color:var(--text);">📋 Règlement</div>
+    <div id="rules-content" style="font-size:14px; color:var(--text-dim); line-height:1.65; text-align:left;">Chargement…</div>
+    <button class="btn btn-primary" id="rules-close" style="width:100%; margin-top:16px;">Fermer</button>
   </div>
 </div>
 
@@ -1790,6 +1801,41 @@ document.getElementById('nav-logout-link').addEventListener('click', (e) => {
   if (currentUser) signOut(auth); else showGate();
 });
 document.getElementById('join-btn').addEventListener('click', showGate);
+
+let rulesLoaded = false;
+
+function formatRulesText(text) {
+  const blocks = text.trim().split(/\n\s*\n/);
+  return blocks.map(block => {
+    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    const isList = lines.every(l => l.startsWith('* '));
+    if (isList) {
+      return '<ul style="margin:10px 0; padding-left:20px; display:flex; flex-direction:column; gap:6px;">' +
+        lines.map(l => '<li>' + l.slice(2) + '</li>').join('') +
+        '</ul>';
+    }
+    return '<p style="margin:12px 0;">' + lines.join('<br>') + '</p>';
+  }).join('');
+}
+
+document.getElementById('rules-btn').addEventListener('click', async () => {
+  const modal = document.getElementById('rules-modal');
+  const content = document.getElementById('rules-content');
+  modal.style.display = 'flex';
+  if (rulesLoaded) return;
+  try {
+    const res = await fetch('reglement.txt', { cache: 'no-store' });
+    if (!res.ok) throw new Error('fichier introuvable');
+    const text = await res.text();
+    content.innerHTML = formatRulesText(text);
+    rulesLoaded = true;
+  } catch (e) {
+    content.innerHTML = '<p style="color:var(--brick);">Impossible de charger le règlement pour le moment.</p>';
+  }
+});
+document.getElementById('rules-close').addEventListener('click', () => {
+  document.getElementById('rules-modal').style.display = 'none';
+});
 
 document.getElementById('about-project-btn').addEventListener('click', () => {
   const modal = document.getElementById('about-project-modal');
