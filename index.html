@@ -115,6 +115,18 @@
   .event-desc { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
   .event-link { display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; }
   .event-link:hover { text-decoration: underline; }
+  #events-view textarea, #events-view input[type="date"], #events-view input[type="time"], #events-view input[type="url"] {
+    width: 100%; box-sizing: border-box; padding: 12px 14px; border: 1px solid var(--line);
+    border-radius: 8px; font-size: 14px; margin-bottom: 10px; font-family: "Inter", sans-serif;
+    background: var(--surface-2); color: var(--text); color-scheme: dark;
+  }
+  #events-view textarea { min-height: 110px; resize: vertical; }
+  #events-view textarea:focus, #events-view input[type="date"]:focus, #events-view input[type="time"]:focus, #events-view input[type="url"]:focus { outline: none; border-color: var(--accent); }
+  .ev-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-dim); margin: 6px 0 5px; }
+  .ev-row { display: flex; gap: 10px; }
+  .ev-row > div { flex: 1; min-width: 0; }
+  #ev-poster-preview { display: none; max-width: 100%; max-height: 380px; border-radius: 10px; border: 1px solid var(--line); margin: 4px 0 12px; }
+  .event-poster { display: block; width: 100%; max-height: 320px; object-fit: cover; border-radius: 8px; margin-top: 10px; cursor: pointer; }
   .events-empty { color: var(--text-dim); font-size: 14px; padding: 24px 0; text-align: center; }
 
   #home-view { display: none; }
@@ -454,8 +466,48 @@
 <div id="events-view">
   <div class="content">
     <div class="page-title" style="margin-top:20px;">Événements</div>
-    <div class="page-sub">Les prochains rendez-vous du Challenge VTT.</div>
-    <div id="events-list"></div>
+    <div id="events-list-section">
+      <div class="page-sub">Les prochains rendez-vous du Challenge VTT.</div>
+      <button class="btn btn-primary" id="propose-event-btn" style="width:100%; margin-bottom:18px;">➕ Proposer un événement</button>
+      <div id="events-list"></div>
+    </div>
+
+    <div id="events-form-section" style="display:none;">
+      <button class="back-btn" id="ev-back-btn">← Événements</button>
+      <div class="section-title" style="margin-top:14px;">Proposer un événement</div>
+      <div class="page-sub">Votre proposition sera relue par l'organisateur avant d'être publiée.</div>
+
+      <div id="ev-login-needed" style="display:none; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px; font-size:14px; color:var(--text-dim);">
+        Connectez-vous pour proposer un événement.<br><br>
+        <a href="#" id="ev-login-link" style="color:var(--accent); font-weight:600; text-decoration:none;">Se connecter / s'inscrire →</a>
+      </div>
+
+      <div id="ev-form">
+        <label class="ev-label" for="ev-title">Titre *</label>
+        <input type="text" id="ev-title" maxlength="100" placeholder="Ex : Sortie VTT du dimanche">
+
+        <div class="ev-row">
+          <div><label class="ev-label" for="ev-date">Date *</label><input type="date" id="ev-date"></div>
+          <div><label class="ev-label" for="ev-time">Heure</label><input type="time" id="ev-time"></div>
+        </div>
+
+        <label class="ev-label" for="ev-place">Lieu</label>
+        <input type="text" id="ev-place" maxlength="120" placeholder="Ex : Parking de la salle des fêtes, Saint-Lô">
+
+        <label class="ev-label" for="ev-desc">Description</label>
+        <textarea id="ev-desc" maxlength="1000" placeholder="Programme, niveau, tarif, contact…"></textarea>
+
+        <label class="ev-label" for="ev-link">Lien (inscription, site…)</label>
+        <input type="url" id="ev-link" maxlength="300" placeholder="https://…">
+
+        <label class="ev-label" for="ev-poster">Affiche ou photo</label>
+        <input type="file" accept="image/*" id="ev-poster" style="margin-bottom:8px;">
+        <img id="ev-poster-preview" alt="Aperçu de l'affiche">
+
+        <button class="btn btn-green" id="ev-submit" style="margin-top:6px;">Envoyer ma proposition</button>
+        <div class="msg" id="ev-status"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -670,7 +722,8 @@ const eventsView = document.getElementById('events-view');
 /* ---------- ÉVÉNEMENTS À VENIR ----------
    Pour ajouter un événement, copiez une ligne ci-dessous et modifiez-la.
    - date : au format AAAA-MM-JJ (obligatoire)
-   - heure, lieu, description, lien : facultatifs (laisser "" si inutile)
+   - heure, lieu, description, lien, affiche : facultatifs (laisser "" si inutile)
+   - affiche : adresse d'une image (ex : "affiches/sortie.jpg")
    Les événements passés disparaissent automatiquement de la page. */
 const EVENEMENTS = [
   { date: "2026-12-12", heure: "09:00", titre: "Sortie de fin d'année", lieu: "Saint-Lô", description: "Sortie collective ouverte à tous les participants du challenge.", lien: "" },
@@ -702,6 +755,7 @@ function renderEvents() {
         '<div class="event-title">' + escHtml(e.titre) + '</div>' +
         (meta ? '<div class="event-meta">' + meta + '</div>' : '') +
         (e.description ? '<div class="event-desc">' + escHtml(e.description) + '</div>' : '') +
+        (e.affiche ? '<img class="event-poster thumb" loading="lazy" alt="Affiche" src="' + escHtml(e.affiche) + '" data-full="' + escHtml(e.affiche) + '">' : '') +
         (e.lien ? '<a class="event-link" href="' + escHtml(e.lien) + '" target="_blank" rel="noopener">En savoir plus →</a>' : '') +
       '</div></div>';
   }).join('');
@@ -1398,6 +1452,7 @@ function showEvents() {
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none';
   eventsView.classList.add('has-header'); eventsView.style.display = 'block';
+  if (typeof showEventsList === 'function') showEventsList();
   renderEvents();
 }
 function showParticipant() { eventsView.style.display = 'none';
@@ -1512,6 +1567,100 @@ document.getElementById('nav-parcours-link').addEventListener('click', (e) => { 
 document.getElementById('nav-leaderboard-link').addEventListener('click', (e) => { e.preventDefault(); showLeaderboard(); });
 document.getElementById('nav-gallery-link').addEventListener('click', (e) => { e.preventDefault(); showGallery(); });
 document.getElementById('nav-events-link').addEventListener('click', (e) => { e.preventDefault(); showEvents(); });
+
+/* ---------- PROPOSER UN ÉVÉNEMENT ---------- */
+let evPosterDataUrl = null;
+const evListSection = document.getElementById('events-list-section');
+const evFormSection = document.getElementById('events-form-section');
+
+function showEventsList() { evFormSection.style.display = 'none'; evListSection.style.display = 'block'; window.scrollTo(0, 0); }
+function showEventForm() {
+  evListSection.style.display = 'none'; evFormSection.style.display = 'block';
+  document.getElementById('ev-login-needed').style.display = currentUser ? 'none' : 'block';
+  document.getElementById('ev-form').style.display = currentUser ? 'block' : 'none';
+  document.getElementById('ev-date').min = new Date().toISOString().slice(0, 10);
+  document.getElementById('ev-status').textContent = '';
+  window.scrollTo(0, 0);
+}
+function resetEventForm() {
+  ['ev-title', 'ev-date', 'ev-time', 'ev-place', 'ev-desc', 'ev-link', 'ev-poster'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('ev-poster-preview').style.display = 'none';
+  evPosterDataUrl = null;
+}
+
+document.getElementById('propose-event-btn').addEventListener('click', showEventForm);
+document.getElementById('ev-back-btn').addEventListener('click', showEventsList);
+document.getElementById('ev-login-link').addEventListener('click', (e) => { e.preventDefault(); showGate(); });
+
+// Redimensionne l'affiche et la compresse pour rester sous la limite d'un document Firestore (~1 Mo)
+document.getElementById('ev-poster').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  const status = document.getElementById('ev-status');
+  if (!file) { evPosterDataUrl = null; document.getElementById('ev-poster-preview').style.display = 'none'; return; }
+  if (!file.type.startsWith('image/')) {
+    status.className = 'msg err'; status.textContent = 'Le fichier doit être une image.';
+    e.target.value = ''; return;
+  }
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxSide = 1200;
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      let quality = 0.75, data = canvas.toDataURL('image/jpeg', quality);
+      while (data.length > 700000 && quality > 0.3) { quality -= 0.1; data = canvas.toDataURL('image/jpeg', quality); }
+      evPosterDataUrl = data;
+      const prev = document.getElementById('ev-poster-preview');
+      prev.src = data; prev.style.display = 'block';
+      status.textContent = '';
+    };
+    img.onerror = () => { status.className = 'msg err'; status.textContent = 'Image illisible.'; };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('ev-submit').addEventListener('click', async () => {
+  const status = document.getElementById('ev-status');
+  const btn = document.getElementById('ev-submit');
+  if (!currentUser) { showEventForm(); return; }
+  const titre = document.getElementById('ev-title').value.trim();
+  const date = document.getElementById('ev-date').value;
+  if (!titre || !date) { status.className = 'msg err'; status.textContent = 'Le titre et la date sont obligatoires.'; return; }
+  const lien = document.getElementById('ev-link').value.trim();
+  if (lien && !/^https?:\/\//i.test(lien)) { status.className = 'msg err'; status.textContent = 'Le lien doit commencer par http:// ou https://'; return; }
+
+  status.className = 'msg'; status.textContent = 'Envoi…';
+  btn.disabled = true;
+  try {
+    const payload = {
+      titre, date,
+      heure: document.getElementById('ev-time').value || '',
+      lieu: document.getElementById('ev-place').value.trim(),
+      description: document.getElementById('ev-desc').value.trim(),
+      lien,
+      proposePar: currentUser.displayName || currentUser.email,
+      proposeParUid: currentUser.uid,
+      statut: 'en_attente',
+      dateProposition: serverTimestamp()
+    };
+    if (evPosterDataUrl) payload.affiche = evPosterDataUrl;
+    await setDoc(doc(collection(db, 'evenements_proposes')), payload);
+    status.className = 'msg ok'; status.textContent = 'Merci ! Votre proposition a bien été envoyée.';
+    resetEventForm();
+    setTimeout(() => { status.textContent = ''; showEventsList(); }, 1800);
+  } catch (e) {
+    status.className = 'msg err'; status.textContent = 'Erreur : ' + (e.code || e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
 document.getElementById('back-to-home').addEventListener('click', showHome);
 document.getElementById('back-to-leaderboard').addEventListener('click', showHome);
 document.getElementById('top-participant-box').addEventListener('click', () => {
