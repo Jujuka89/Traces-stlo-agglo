@@ -101,6 +101,15 @@
   .msg.err { color: var(--accent); }
   .msg.ok { color: var(--validated); }
 
+  #admin-view { display: none; }
+  #admin-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
+  .admin-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+  .admin-card.is-pending { border-color: var(--accent); }
+  .admin-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .admin-actions .btn { flex: 1; padding: 10px; font-size: 13px; }
+  .btn-danger { background: transparent; color: #FF6B6B; border: 1px solid #FF6B6B; }
+  .admin-by { font-size: 11px; color: var(--text-dim); margin-top: 6px; }
+  #nav-admin-link { display: none; color: var(--accent) !important; }
   #events-view { display: none; }
   #events-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
   .event-card { display: flex; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; transition: border-color 0.15s ease, transform 0.1s ease; }
@@ -327,6 +336,7 @@
 
 <footer id="site-footer">
   <span class="nav-user">👀 <span id="footer-visits">--</span> visites</span>
+  <a href="#" id="nav-admin-link">🔧 Admin</a>
   <a href="#" id="nav-logout-link">Déconnexion</a>
 </footer>
 
@@ -511,6 +521,17 @@
   </div>
 </div>
 
+<div id="admin-view">
+  <div class="content">
+    <div class="page-title" style="margin-top:20px;">Administration</div>
+    <div class="page-sub">Propositions d'événements à valider, et événements publiés.</div>
+    <div class="section-title">Propositions en attente <span id="admin-pending-count"></span></div>
+    <div id="admin-pending"></div>
+    <div class="section-title" style="margin-top:24px;">Événements publiés (ajoutés ici)</div>
+    <div id="admin-published"></div>
+  </div>
+</div>
+
 <div id="app-view">
   <div class="content">
     <button class="back-btn" id="back-to-home">← Parcours</button>
@@ -645,7 +666,7 @@ import {
   signOut, onAuthStateChanged, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, doc, setDoc, getDoc, collection, collectionGroup, onSnapshot, serverTimestamp, increment, arrayUnion
+  getFirestore, doc, setDoc, getDoc, collection, collectionGroup, onSnapshot, serverTimestamp, increment, arrayUnion, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -718,6 +739,110 @@ const galleryView = document.getElementById('gallery-view');
 const participantView = document.getElementById('participant-view');
 const loadingScreen = document.getElementById('loading-screen');
 const eventsView = document.getElementById('events-view');
+const adminView = document.getElementById('admin-view');
+
+/* ---------- ADMIN ----------
+   Collez ici l'UID de chaque administrateur (Firebase > Authentication > Utilisateurs > "UID utilisateur").
+   ATTENTION : ceci ne fait que cacher/afficher la page. La vraie protection, ce sont les règles Firestore
+   (voir les explications fournies) : sans elles, n'importe qui pourrait écrire dans la base. */
+const ADMIN_UIDS = [
+  // "COLLEZ_ICI_VOTRE_UID"
+];
+function isAdmin() { return !!currentUser && ADMIN_UIDS.includes(currentUser.uid); }
+function updateAdminUI() { document.getElementById('nav-admin-link').style.display = isAdmin() ? 'inline' : 'none'; }
+
+// Adresse sûre : http(s), image intégrée (data:image) ou chemin relatif. Bloque javascript: etc.
+function safeUrl(u, allowData) {
+  u = String(u || '').trim();
+  if (/^https?:\/\//i.test(u)) return u;
+  if (allowData && /^data:image\/(jpeg|png|webp|gif);base64,/i.test(u)) return u;
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(u) && !u.startsWith('//')) return u;
+  return '';
+}
+
+let publicEvents = [];
+let unsubPublicEvents = null;
+function watchPublicEvents() {
+  if (unsubPublicEvents) return;
+  unsubPublicEvents = onSnapshot(collection(db, 'evenements'), (snap) => {
+    publicEvents = [];
+    snap.forEach(d => publicEvents.push({ ...d.data(), _id: d.id, _fromDb: true }));
+    renderEvents();
+    if (isAdmin()) renderAdminPublished();
+  }, () => { /* règles pas encore en place : on affiche seulement la liste du fichier */ });
+}
+
+let adminProposals = {};
+let unsubAdminProposals = null;
+function watchAdminProposals() {
+  if (unsubAdminProposals) unsubAdminProposals();
+  unsubAdminProposals = onSnapshot(collection(db, 'evenements_proposes'), (snap) => {
+    adminProposals = {};
+    snap.forEach(d => { adminProposals[d.id] = { ...d.data(), _id: d.id }; });
+    renderAdminPending();
+  }, (e) => {
+    document.getElementById('admin-pending').innerHTML = '<div class="events-empty" style="color:#FF6B6B;">Lecture impossible (' + escHtml(e.code || e.message) + '). Vérifiez vos règles Firestore.</div>';
+  });
+}
+function adminCardHtml(e, pending) {
+  const meta = [e.date ? '📅 ' + escHtml(e.date) : '', e.heure ? '🕘 ' + escHtml(e.heure) : '', e.lieu ? '📍 ' + escHtml(e.lieu) : ''].filter(Boolean).join(' · ');
+  const aff = safeUrl(e.affiche, true);
+  const lien = safeUrl(e.lien, false);
+  return '<div class="admin-card' + (pending ? ' is-pending' : '') + '">' +
+    '<div class="event-title">' + escHtml(e.titre || '(sans titre)') + '</div>' +
+    (meta ? '<div class="event-meta">' + meta + '</div>' : '') +
+    (e.description ? '<div class="event-desc">' + escHtml(e.description) + '</div>' : '') +
+    (lien ? '<a class="event-link" href="' + escHtml(lien) + '" target="_blank" rel="noopener noreferrer">' + escHtml(lien) + '</a>' : '') +
+    (aff ? '<img class="event-poster thumb" alt="Affiche" src="' + escHtml(aff) + '" data-full="' + escHtml(aff) + '">' : '') +
+    (pending && e.proposePar ? '<div class="admin-by">Proposé par ' + escHtml(e.proposePar) + '</div>' : '') +
+    '<div class="admin-actions">' +
+      (pending ? '<button class="btn btn-green" style="width:auto;" data-admin="publish" data-id="' + escHtml(e._id) + '">✅ Publier</button>' : '') +
+      '<button class="btn btn-danger" data-admin="' + (pending ? 'reject' : 'unpublish') + '" data-id="' + escHtml(e._id) + '">🗑 ' + (pending ? 'Refuser' : 'Retirer') + '</button>' +
+    '</div></div>';
+}
+function renderAdminPending() {
+  const list = Object.values(adminProposals).sort((a, b) => (b.dateProposition?.seconds || 0) - (a.dateProposition?.seconds || 0));
+  document.getElementById('admin-pending-count').textContent = list.length ? '(' + list.length + ')' : '';
+  document.getElementById('admin-pending').innerHTML = list.length
+    ? list.map(e => adminCardHtml(e, true)).join('')
+    : '<div class="events-empty">Aucune proposition en attente.</div>';
+}
+function renderAdminPublished() {
+  const list = publicEvents.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  document.getElementById('admin-published').innerHTML = list.length
+    ? list.map(e => adminCardHtml(e, false)).join('')
+    : '<div class="events-empty">Aucun événement publié depuis l\'administration.</div>';
+}
+
+document.getElementById('admin-view').addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('[data-admin]');
+  if (!btn || !isAdmin()) return;
+  const id = btn.dataset.id, action = btn.dataset.admin;
+  btn.disabled = true;
+  try {
+    if (action === 'publish') {
+      const p = adminProposals[id];
+      if (!p) return;
+      const out = {
+        titre: String(p.titre || '').slice(0, 100), date: p.date || '', heure: p.heure || '',
+        lieu: p.lieu || '', description: p.description || '', lien: safeUrl(p.lien, false),
+        datePublication: serverTimestamp()
+      };
+      const aff = safeUrl(p.affiche, true);
+      if (aff) out.affiche = aff;
+      await setDoc(doc(db, 'evenements', id), out);
+      await deleteDoc(doc(db, 'evenements_proposes', id));
+    } else if (action === 'reject') {
+      if (confirm('Refuser et supprimer cette proposition ?')) await deleteDoc(doc(db, 'evenements_proposes', id));
+    } else if (action === 'unpublish') {
+      if (confirm('Retirer cet événement du site ?')) await deleteDoc(doc(db, 'evenements', id));
+    }
+  } catch (e) {
+    alert('Erreur : ' + (e.code || e.message));
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 /* ---------- ÉVÉNEMENTS À VENIR ----------
    Pour ajouter un événement, copiez une ligne ci-dessous et modifiez-la.
@@ -736,7 +861,7 @@ function escHtml(str) {
 function renderEvents() {
   const list = document.getElementById('events-list');
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const upcoming = EVENEMENTS
+  const upcoming = EVENEMENTS.concat(publicEvents)
     .map(e => ({ ...e, _d: new Date(e.date + 'T00:00:00') }))
     .filter(e => !isNaN(e._d) && e._d >= today)
     .sort((a, b) => a._d - b._d);
@@ -755,8 +880,8 @@ function renderEvents() {
         '<div class="event-title">' + escHtml(e.titre) + '</div>' +
         (meta ? '<div class="event-meta">' + meta + '</div>' : '') +
         (e.description ? '<div class="event-desc">' + escHtml(e.description) + '</div>' : '') +
-        (e.affiche ? '<img class="event-poster thumb" loading="lazy" alt="Affiche" src="' + escHtml(e.affiche) + '" data-full="' + escHtml(e.affiche) + '">' : '') +
-        (e.lien ? '<a class="event-link" href="' + escHtml(e.lien) + '" target="_blank" rel="noopener">En savoir plus →</a>' : '') +
+        (safeUrl(e.affiche, true) ? '<img class="event-poster thumb" loading="lazy" alt="Affiche" src="' + escHtml(safeUrl(e.affiche, true)) + '" data-full="' + escHtml(safeUrl(e.affiche, true)) + '">' : '') +
+        (safeUrl(e.lien, false) ? '<a class="event-link" href="' + escHtml(safeUrl(e.lien, false)) + '" target="_blank" rel="noopener noreferrer">En savoir plus →</a>' : '') +
       '</div></div>';
   }).join('');
 }
@@ -1404,8 +1529,8 @@ document.addEventListener('click', (e) => {
   if (e.target.classList.contains('popup-link')) openTrace(e.target.dataset.trace);
 });
 
-function showGate() { eventsView.style.display = 'none'; siteHeader.style.display = 'none'; siteFooter.style.display = 'none'; gateView.style.display = 'flex'; homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none'; }
-function showHome() { eventsView.style.display = 'none';
+function showGate() { adminView.style.display = 'none'; eventsView.style.display = 'none'; siteHeader.style.display = 'none'; siteFooter.style.display = 'none'; gateView.style.display = 'flex'; homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none'; }
+function showHome() { adminView.style.display = 'none'; eventsView.style.display = 'none';
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none';
   homeView.classList.add('has-header'); homeView.style.display = 'block';
@@ -1421,7 +1546,7 @@ function showHome() { eventsView.style.display = 'none';
     }
   }, 60);
 }
-function showApp() { eventsView.style.display = 'none';
+function showApp() { adminView.style.display = 'none'; eventsView.style.display = 'none';
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none';
   appView.classList.add('has-header'); appView.style.display = 'block';
@@ -1432,30 +1557,39 @@ function showApp() { eventsView.style.display = 'none';
     }
   }, 60);
 }
-function showLeaderboard() { eventsView.style.display = 'none';
+function showLeaderboard() { adminView.style.display = 'none'; eventsView.style.display = 'none';
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; appView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none';
   leaderboardView.classList.add('has-header'); leaderboardView.style.display = 'block';
 }
-function showParcours() { eventsView.style.display = 'none';
+function showParcours() { adminView.style.display = 'none'; eventsView.style.display = 'none';
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none';
   parcoursView.classList.add('has-header'); parcoursView.style.display = 'block';
   renderParcoursRanking();
 }
-function showGallery() { eventsView.style.display = 'none';
+function showGallery() { adminView.style.display = 'none'; eventsView.style.display = 'none';
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; participantView.style.display = 'none';
   galleryView.classList.add('has-header'); galleryView.style.display = 'block';
 }
-function showEvents() {
+function showEvents() { adminView.style.display = 'none';
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none';
   eventsView.classList.add('has-header'); eventsView.style.display = 'block';
   if (typeof showEventsList === 'function') showEventsList();
+  watchPublicEvents();
   renderEvents();
 }
-function showParticipant() { eventsView.style.display = 'none';
+function showAdmin() {
+  if (!isAdmin()) { showHome(); return; }
+  gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
+  homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none'; eventsView.style.display = 'none';
+  adminView.classList.add('has-header'); adminView.style.display = 'block';
+  watchAdminProposals(); watchPublicEvents(); renderAdminPublished();
+  window.scrollTo(0, 0);
+}
+function showParticipant() { adminView.style.display = 'none'; eventsView.style.display = 'none';
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none';
   participantView.classList.add('has-header'); participantView.style.display = 'block';
@@ -1567,6 +1701,7 @@ document.getElementById('nav-parcours-link').addEventListener('click', (e) => { 
 document.getElementById('nav-leaderboard-link').addEventListener('click', (e) => { e.preventDefault(); showLeaderboard(); });
 document.getElementById('nav-gallery-link').addEventListener('click', (e) => { e.preventDefault(); showGallery(); });
 document.getElementById('nav-events-link').addEventListener('click', (e) => { e.preventDefault(); showEvents(); });
+document.getElementById('nav-admin-link').addEventListener('click', (e) => { e.preventDefault(); showAdmin(); });
 
 /* ---------- PROPOSER UN ÉVÉNEMENT ---------- */
 let evPosterDataUrl = null;
@@ -2099,6 +2234,8 @@ async function enterVisitorMode() {
 
 onAuthStateChanged(auth, async (user) => {
   currentUser = user;
+  updateAdminUI();
+  if (!isAdmin() && unsubAdminProposals) { unsubAdminProposals(); unsubAdminProposals = null; }
   if (user) {
     document.body.classList.remove('is-visitor');
     document.getElementById('nav-logout-link').textContent = 'Déconnexion';
