@@ -746,7 +746,7 @@ const adminView = document.getElementById('admin-view');
    ATTENTION : ceci ne fait que cacher/afficher la page. La vraie protection, ce sont les règles Firestore
    (voir les explications fournies) : sans elles, n'importe qui pourrait écrire dans la base. */
 const ADMIN_UIDS = [
-  // "COLLEZ_ICI_VOTRE_UID"
+     "5D4DMI44xCUuCJ13VG3XlIBEpgG2"
 ];
 function isAdmin() { return !!currentUser && ADMIN_UIDS.includes(currentUser.uid); }
 function updateAdminUI() { document.getElementById('nav-admin-link').style.display = isAdmin() ? 'inline' : 'none'; }
