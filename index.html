@@ -48,7 +48,7 @@
   }
   .site-logo { display: flex; align-items: center; gap: 9px; font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 16px; color: var(--text); letter-spacing: -0.01em; text-shadow: 0 1px 4px rgba(0,0,0,0.6); }
   .site-logo .icon { font-size: 20px; }
-  .nav-menu { display: flex; align-items: center; gap: 20px; }
+  .nav-menu { display: flex; align-items: center; gap: 14px; }
   .nav-menu a { color: var(--text-dim); text-decoration: none; font-size: 13px; font-weight: 500; cursor: pointer; transition: color 0.15s ease; }
   .nav-menu a:hover { color: var(--accent); }
   .nav-user { font-size: 12px; color: var(--text-dim); margin-right: 4px; }
@@ -100,6 +100,22 @@
   .msg { font-size: 12px; margin-top: 8px; min-height: 16px; }
   .msg.err { color: var(--accent); }
   .msg.ok { color: var(--validated); }
+
+  #events-view { display: none; }
+  #events-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
+  .event-card { display: flex; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; transition: border-color 0.15s ease, transform 0.1s ease; }
+  .event-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .event-date { flex-shrink: 0; width: 58px; text-align: center; background: var(--accent-soft); border: 1px solid rgba(255,90,31,0.35); border-radius: 10px; padding: 8px 0; align-self: flex-start; }
+  .event-date .d { font-family: "Space Grotesk", sans-serif; font-size: 24px; font-weight: 700; color: var(--accent); line-height: 1; }
+  .event-date .m { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text); margin-top: 4px; letter-spacing: 0.04em; }
+  .event-date .y { font-size: 10px; color: var(--text-dim); margin-top: 1px; }
+  .event-body { flex: 1; min-width: 0; }
+  .event-title { font-family: "Space Grotesk", sans-serif; font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .event-meta { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+  .event-desc { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  .event-link { display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; }
+  .event-link:hover { text-decoration: underline; }
+  .events-empty { color: var(--text-dim); font-size: 14px; padding: 24px 0; text-align: center; }
 
   #home-view { display: none; }
   #home-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
@@ -293,6 +309,7 @@
     <a href="#" id="nav-parcours-link">Parcours</a>
     <a href="#" id="nav-leaderboard-link">Classement</a>
     <a href="#" id="nav-gallery-link">Galerie</a>
+    <a href="#" id="nav-events-link">Événements</a>
   </nav>
 </header>
 
@@ -431,6 +448,14 @@
     <div class="page-title" style="margin-top:20px;">Galerie</div>
     <div class="page-sub">Les photos partagées par les participants, tous parcours confondus.</div>
     <div id="gallery-grid" class="gallery-grid"><div style="color:var(--text-dim);">Chargement…</div></div>
+  </div>
+</div>
+
+<div id="events-view">
+  <div class="content">
+    <div class="page-title" style="margin-top:20px;">Événements</div>
+    <div class="page-sub">Les prochains rendez-vous du Challenge VTT.</div>
+    <div id="events-list"></div>
   </div>
 </div>
 
@@ -640,6 +665,47 @@ const parcoursView = document.getElementById('parcours-view');
 const galleryView = document.getElementById('gallery-view');
 const participantView = document.getElementById('participant-view');
 const loadingScreen = document.getElementById('loading-screen');
+const eventsView = document.getElementById('events-view');
+
+/* ---------- ÉVÉNEMENTS À VENIR ----------
+   Pour ajouter un événement, copiez une ligne ci-dessous et modifiez-la.
+   - date : au format AAAA-MM-JJ (obligatoire)
+   - heure, lieu, description, lien : facultatifs (laisser "" si inutile)
+   Les événements passés disparaissent automatiquement de la page. */
+const EVENEMENTS = [
+  { date: "2026-12-12", heure: "09:00", titre: "Sortie de fin d'année", lieu: "Saint-Lô", description: "Sortie collective ouverte à tous les participants du challenge.", lien: "" },
+  { date: "2027-03-20", heure: "", titre: "Ouverture de la saison 2027", lieu: "", description: "Détails à venir.", lien: "" }
+];
+
+function escHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function renderEvents() {
+  const list = document.getElementById('events-list');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const upcoming = EVENEMENTS
+    .map(e => ({ ...e, _d: new Date(e.date + 'T00:00:00') }))
+    .filter(e => !isNaN(e._d) && e._d >= today)
+    .sort((a, b) => a._d - b._d);
+  if (!upcoming.length) {
+    list.innerHTML = '<div class="events-empty">Aucun événement à venir pour le moment.</div>';
+    return;
+  }
+  list.innerHTML = upcoming.map(e => {
+    const jour = e._d.getDate();
+    const mois = e._d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '');
+    const annee = e._d.getFullYear();
+    const meta = [e.heure ? '🕘 ' + escHtml(e.heure) : '', e.lieu ? '📍 ' + escHtml(e.lieu) : ''].filter(Boolean).join(' · ');
+    return '<div class="event-card">' +
+      '<div class="event-date"><div class="d">' + jour + '</div><div class="m">' + escHtml(mois) + '</div><div class="y">' + annee + '</div></div>' +
+      '<div class="event-body">' +
+        '<div class="event-title">' + escHtml(e.titre) + '</div>' +
+        (meta ? '<div class="event-meta">' + meta + '</div>' : '') +
+        (e.description ? '<div class="event-desc">' + escHtml(e.description) + '</div>' : '') +
+        (e.lien ? '<a class="event-link" href="' + escHtml(e.lien) + '" target="_blank" rel="noopener">En savoir plus →</a>' : '') +
+      '</div></div>';
+  }).join('');
+}
 
 // Barème des points (utilisé par le classement, les fiches participants et la légende)
 const POINTS_PARCOURS = 20; // par parcours validé
@@ -1284,8 +1350,8 @@ document.addEventListener('click', (e) => {
   if (e.target.classList.contains('popup-link')) openTrace(e.target.dataset.trace);
 });
 
-function showGate() { siteHeader.style.display = 'none'; siteFooter.style.display = 'none'; gateView.style.display = 'flex'; homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none'; }
-function showHome() {
+function showGate() { eventsView.style.display = 'none'; siteHeader.style.display = 'none'; siteFooter.style.display = 'none'; gateView.style.display = 'flex'; homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none'; }
+function showHome() { eventsView.style.display = 'none';
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none';
   homeView.classList.add('has-header'); homeView.style.display = 'block';
@@ -1301,7 +1367,7 @@ function showHome() {
     }
   }, 60);
 }
-function showApp() {
+function showApp() { eventsView.style.display = 'none';
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none';
   appView.classList.add('has-header'); appView.style.display = 'block';
@@ -1312,23 +1378,29 @@ function showApp() {
     }
   }, 60);
 }
-function showLeaderboard() {
+function showLeaderboard() { eventsView.style.display = 'none';
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; appView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none';
   leaderboardView.classList.add('has-header'); leaderboardView.style.display = 'block';
 }
-function showParcours() {
+function showParcours() { eventsView.style.display = 'none';
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none';
   parcoursView.classList.add('has-header'); parcoursView.style.display = 'block';
   renderParcoursRanking();
 }
-function showGallery() {
+function showGallery() { eventsView.style.display = 'none';
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; participantView.style.display = 'none';
   galleryView.classList.add('has-header'); galleryView.style.display = 'block';
 }
-function showParticipant() {
+function showEvents() {
+  gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
+  homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none';
+  eventsView.classList.add('has-header'); eventsView.style.display = 'block';
+  renderEvents();
+}
+function showParticipant() { eventsView.style.display = 'none';
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none';
   participantView.classList.add('has-header'); participantView.style.display = 'block';
@@ -1439,6 +1511,7 @@ document.getElementById('nav-home-link').addEventListener('click', (e) => { e.pr
 document.getElementById('nav-parcours-link').addEventListener('click', (e) => { e.preventDefault(); showParcours(); });
 document.getElementById('nav-leaderboard-link').addEventListener('click', (e) => { e.preventDefault(); showLeaderboard(); });
 document.getElementById('nav-gallery-link').addEventListener('click', (e) => { e.preventDefault(); showGallery(); });
+document.getElementById('nav-events-link').addEventListener('click', (e) => { e.preventDefault(); showEvents(); });
 document.getElementById('back-to-home').addEventListener('click', showHome);
 document.getElementById('back-to-leaderboard').addEventListener('click', showHome);
 document.getElementById('top-participant-box').addEventListener('click', () => {
