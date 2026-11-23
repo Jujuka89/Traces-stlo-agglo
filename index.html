@@ -389,6 +389,9 @@
           <div id="trace-list"></div>
         </div>
 
+        <div class="section-title" style="margin-top:0;">📅 Prochain événement</div>
+        <div id="home-next-event" style="cursor:pointer;" title="Voir tous les événements"></div>
+
         <div class="section-title" style="margin-top:26px;">📣 Actualités</div>
         <div id="news-list"><div style="color:var(--text-dim); font-size:13px;">Chargement…</div></div>
 
@@ -918,6 +921,23 @@ const EVENEMENTS = [
 function escHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+function renderHomeNextEvent(e) {
+  const box = document.getElementById('home-next-event');
+  if (!box) return;
+  if (!e) { box.innerHTML = '<div style="color:var(--text-dim); font-size:13px;">Aucun événement à venir pour le moment.</div>'; return; }
+  const jour = e._d.getDate();
+  const mois = e._d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '');
+  const annee = e._d.getFullYear();
+  const meta = [e.heure ? '🕘 ' + escHtml(e.heure) : '', e.lieu ? '📍 ' + escHtml(e.lieu) : ''].filter(Boolean).join(' · ');
+  box.innerHTML = '<div class="event-card" style="margin-bottom:0;">' +
+    '<div class="event-date"><div class="d">' + jour + '</div><div class="m">' + escHtml(mois) + '</div><div class="y">' + annee + '</div></div>' +
+    '<div class="event-body"><div class="event-title">' + escHtml(e.titre) + '</div>' +
+    (meta ? '<div class="event-meta">' + meta + '</div>' : '') +
+    (e.description ? '<div class="event-desc">' + escHtml(e.description) + '</div>' : '') +
+    '</div></div>';
+}
+document.getElementById('home-next-event').addEventListener('click', () => showEvents());
+
 function renderEvents() {
   const list = document.getElementById('events-list');
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -925,6 +945,7 @@ function renderEvents() {
     .map(e => ({ ...e, _d: new Date(e.date + 'T00:00:00') }))
     .filter(e => !isNaN(e._d) && e._d >= today)
     .sort((a, b) => a._d - b._d);
+  renderHomeNextEvent(upcoming[0]);
   if (!upcoming.length) {
     list.innerHTML = '<div class="events-empty">Aucun événement à venir pour le moment.</div>';
     return;
@@ -1352,6 +1373,7 @@ async function buildAggloOutline() {
 }
 
 function renderHome() {
+  watchPublicEvents(); renderEvents();
   if (homeMap) {
     // Carte déjà créée (ex. mode visiteur puis connexion) : on ajoute les tracés désormais débloqués
     renderHomeTraces();
