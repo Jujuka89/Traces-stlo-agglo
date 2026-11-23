@@ -109,6 +109,12 @@
   .admin-actions .btn { flex: 1; padding: 10px; font-size: 13px; }
   .btn-danger { background: transparent; color: #FF6B6B; border: 1px solid #FF6B6B; }
   .admin-by { font-size: 11px; color: var(--text-dim); margin-top: 6px; }
+  .admin-user { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; }
+  .admin-user-info { flex: 1; min-width: 0; }
+  .admin-user-name { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .admin-user-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .admin-user .btn { width: auto; flex: none; padding: 8px 12px; font-size: 12px; }
+  #admin-users-search { width: 100%; box-sizing: border-box; margin-bottom: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-size: 14px; }
   #nav-admin-link { display: none; color: var(--accent) !important; }
   #events-view { display: none; }
   #events-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
@@ -524,11 +530,14 @@
 <div id="admin-view">
   <div class="content">
     <div class="page-title" style="margin-top:20px;">Administration</div>
-    <div class="page-sub">Propositions d'événements à valider, et événements publiés.</div>
+    <div class="page-sub">Propositions d'événements à valider, événements publiés et liste des inscrits.</div>
     <div class="section-title">Propositions en attente <span id="admin-pending-count"></span></div>
     <div id="admin-pending"></div>
     <div class="section-title" style="margin-top:24px;">Événements publiés (ajoutés ici)</div>
     <div id="admin-published"></div>
+    <div class="section-title" style="margin-top:24px;">Inscrits <span id="admin-users-count"></span></div>
+    <input type="search" id="admin-users-search" placeholder="Rechercher un nom ou un e-mail…" autocomplete="off">
+    <div id="admin-users"></div>
   </div>
 </div>
 
@@ -814,6 +823,48 @@ function renderAdminPublished() {
     : '<div class="events-empty">Aucun événement publié depuis l\'administration.</div>';
 }
 
+/* ---------- INSCRITS (admin) ----------
+   La liste vient du document users/{uid} (nom, e-mail), complétée par les participants
+   connus via leurs validations. Supprimer = effacer ses données du site (profil, validations, notes). */
+let adminUsers = {};
+let unsubAdminUsers = null;
+function watchAdminUsers() {
+  if (unsubAdminUsers) return;
+  unsubAdminUsers = onSnapshot(collection(db, 'users'), (snap) => {
+    adminUsers = {};
+    snap.forEach(d => { adminUsers[d.id] = { ...d.data(), _id: d.id }; });
+    renderAdminUsers();
+  }, (e) => {
+    document.getElementById('admin-users').innerHTML = '<div class="events-empty" style="color:#FF6B6B;">Lecture impossible (' + escHtml(e.code || e.message) + '). Vérifiez vos règles Firestore.</div>';
+  });
+}
+function renderAdminUsers() {
+  const box = document.getElementById('admin-users');
+  if (!box) return;
+  const all = {};
+  Object.values(adminUsers).forEach(u => { all[u._id] = { uid: u._id, nom: u.nom || '', email: u.email || '', inscrit: u.dateInscription && u.dateInscription.seconds ? u.dateInscription.seconds : 0 }; });
+  Object.keys(participantsIndex || {}).forEach(uid => {
+    if (!all[uid]) all[uid] = { uid, nom: '', email: '', inscrit: 0 };
+    if (!all[uid].nom) all[uid].nom = participantsIndex[uid].nom || '';
+  });
+  const q = (document.getElementById('admin-users-search').value || '').trim().toLowerCase();
+  const list = Object.values(all)
+    .filter(u => !q || (u.nom + ' ' + u.email).toLowerCase().includes(q))
+    .sort((a, b) => (a.nom || '~').localeCompare(b.nom || '~', 'fr', { sensitivity: 'base' }));
+  document.getElementById('admin-users-count').textContent = Object.keys(all).length ? '(' + Object.keys(all).length + ')' : '';
+  box.innerHTML = list.length ? list.map(u => {
+    const nb = participantsIndex && participantsIndex[u.uid] ? participantsIndex[u.uid].entries.length : 0;
+    const meta = [u.email, nb + ' parcours', u.inscrit ? 'inscrit le ' + new Date(u.inscrit * 1000).toLocaleDateString('fr-FR') : ''].filter(Boolean).join(' · ');
+    const isAdm = ADMIN_UIDS.includes(u.uid);
+    return '<div class="admin-user"><div class="admin-user-info">' +
+      '<div class="admin-user-name">' + escHtml(u.nom || '(nom inconnu)') + (isAdm ? ' 🔧' : '') + '</div>' +
+      '<div class="admin-user-meta">' + escHtml(meta) + '</div></div>' +
+      (isAdm ? '' : '<button class="btn btn-danger" data-admin="deluser" data-id="' + escHtml(u.uid) + '" data-name="' + escHtml(u.nom || u.email || u.uid) + '">🗑 Supprimer</button>') +
+      '</div>';
+  }).join('') : '<div class="events-empty">' + (q ? 'Aucun résultat.' : 'Aucun inscrit enregistré pour le moment.') + '</div>';
+}
+document.getElementById('admin-users-search').addEventListener('input', renderAdminUsers);
+
 document.getElementById('admin-view').addEventListener('click', async (ev) => {
   const btn = ev.target.closest('[data-admin]');
   if (!btn || !isAdmin()) return;
@@ -836,6 +887,15 @@ document.getElementById('admin-view').addEventListener('click', async (ev) => {
       if (confirm('Refuser et supprimer cette proposition ?')) await deleteDoc(doc(db, 'evenements_proposes', id));
     } else if (action === 'unpublish') {
       if (confirm('Retirer cet événement du site ?')) await deleteDoc(doc(db, 'evenements', id));
+    } else if (action === 'deluser') {
+      if (ADMIN_UIDS.includes(id)) return;
+      if (confirm('Supprimer « ' + (btn.dataset.name || id) + ' » ?\n\nSon profil, ses parcours validés (et photos) et ses notes seront effacés du site. Cette action est définitive.')) {
+        for (const t of TRACE_LIST) {
+          await deleteDoc(doc(db, 'traces', t.id, 'validations', id));
+          await deleteDoc(doc(db, 'traces', t.id, 'votes', id));
+        }
+        await deleteDoc(doc(db, 'users', id));
+      }
     }
   } catch (e) {
     alert('Erreur : ' + (e.code || e.message));
@@ -934,6 +994,7 @@ function watchLeaderboard() {
       }
     });
     participantsIndex = index;
+    if (isAdmin() && adminView.style.display === 'block') renderAdminUsers();
     lastLeaderboardData = Object.values(counts);
     renderTopParticipant();
     renderLeaderboard();
@@ -1586,7 +1647,7 @@ function showAdmin() {
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none'; eventsView.style.display = 'none';
   adminView.classList.add('has-header'); adminView.style.display = 'block';
-  watchAdminProposals(); watchPublicEvents(); renderAdminPublished();
+  watchAdminProposals(); watchPublicEvents(); renderAdminPublished(); watchAdminUsers(); renderAdminUsers();
   window.scrollTo(0, 0);
 }
 function showParticipant() { adminView.style.display = 'none'; eventsView.style.display = 'none';
@@ -2135,6 +2196,7 @@ document.getElementById('gate-signup').addEventListener('click', async () => {
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, pwd);
     await updateProfile(cred.user, { displayName: name });
+    setDoc(doc(db, 'users', cred.user.uid), { nom: name, email: cred.user.email, dateInscription: serverTimestamp() }, { merge: true }).catch(() => {});
   } catch (e) {
     justSignedUp = false; // échec de l'inscription : on annule le marqueur
     gateMsg.className = 'msg err'; gateMsg.textContent = errFr(e.code);
@@ -2236,6 +2298,7 @@ onAuthStateChanged(auth, async (user) => {
   currentUser = user;
   updateAdminUI();
   if (!isAdmin() && unsubAdminProposals) { unsubAdminProposals(); unsubAdminProposals = null; }
+  if (!isAdmin() && unsubAdminUsers) { unsubAdminUsers(); unsubAdminUsers = null; adminUsers = {}; }
   if (user) {
     document.body.classList.remove('is-visitor');
     document.getElementById('nav-logout-link').textContent = 'Déconnexion';
@@ -2269,6 +2332,9 @@ onAuthStateChanged(auth, async (user) => {
     }
     // Compteur de visites : non critique, placé après coup et isolé,
     // une erreur ici ne doit jamais renvoyer vers l'écran de connexion.
+    try {
+      if (user.displayName) setDoc(doc(db, 'users', user.uid), { nom: user.displayName, email: user.email || '' }, { merge: true }).catch(() => {});
+    } catch (e) { /* ignoré */ }
     try {
       watchSiteStats();
       bumpVisitCounter();
