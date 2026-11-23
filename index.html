@@ -49,7 +49,7 @@
   .site-logo { display: flex; align-items: center; gap: 9px; font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: clamp(28px, 8vw, 44px); line-height: 1.1; color: var(--text); letter-spacing: -0.02em; text-shadow: 0 1px 4px rgba(0,0,0,0.6); }
   .site-logo .icon { font-size: 1.05em; }
   .site-logo .logo-text { position: relative; display: inline-block; }
-  .season-sign { position: absolute; right: -1.9em; top: 2.40em; transform: rotate(-10deg); transform-origin: center; background: var(--accent); color: #14100D; font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 0.3em; letter-spacing: 0.03em; line-height: 1; padding: 0.35em 0.7em; border: 0.12em solid #14100D; border-radius: 0.2em; white-space: nowrap; text-shadow: none; box-shadow: 0 2px 6px rgba(0,0,0,0.5); }
+  .season-sign { position: absolute; right: -0.9em; top: 0.05em; transform: rotate(-9deg); transform-origin: center; background: var(--accent); color: #14100D; font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 0.3em; letter-spacing: 0.03em; line-height: 1; padding: 0.35em 0.7em; border: 0.12em solid #14100D; border-radius: 0.2em; white-space: nowrap; text-shadow: none; box-shadow: 0 2px 6px rgba(0,0,0,0.5); }
   .site-logo .wheel-o { display: inline-block; width: 0.74em; height: 0.74em; vertical-align: -0.06em; margin: 0 0.02em; animation: wheel-spin 2.4s linear infinite; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6)); }
   @keyframes wheel-spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .site-logo .wheel-o { animation: none; } }
@@ -266,6 +266,16 @@
   .leaderboard-count { font-family: "Space Grotesk", sans-serif; font-weight: 700; color: var(--text); white-space: nowrap; }
   .leaderboard-dist { font-family: "Space Grotesk", sans-serif; font-weight: 700; color: var(--text-dim); white-space: nowrap; font-size: 13px; }
 
+  .badges-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-bottom: 6px; }
+  .badge-item { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 6px 8px; text-align: center; }
+  .badge-item.is-unlocked { border-color: rgba(255,90,31,0.45); background: linear-gradient(160deg, var(--accent-soft), var(--surface)); }
+  .badge-item.is-locked .badge-art { filter: grayscale(1) brightness(0.8); opacity: 0.38; }
+  .badge-art { display: flex; justify-content: center; }
+  .badge-name { font-family: "Space Grotesk", sans-serif; font-weight: 600; font-size: 12px; color: var(--text); margin-top: 4px; line-height: 1.2; }
+  .badge-desc { font-size: 10.5px; color: var(--text-dim); margin-top: 3px; line-height: 1.3; }
+  .badge-progress { font-size: 10.5px; color: var(--accent); font-weight: 600; margin-top: 3px; }
+  .badge-popup-row { display: flex; align-items: center; gap: 12px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; }
+  .badge-popup-row .badge-art svg { width: 52px; height: 60px; }
   .content { max-width: 660px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
 
   .home-grid { display: block; }
@@ -494,6 +504,9 @@
     <div class="section-title">Détail des points</div>
     <div class="chart-card" id="participant-points-detail" style="font-size:13px; color:var(--text-dim); line-height:1.9; margin-bottom:6px;"></div>
 
+    <div class="section-title">Badges <span id="participant-badges-count" style="color:var(--text-dim); font-weight:500; text-transform:none; letter-spacing:0;"></span></div>
+    <div class="badges-grid" id="participant-badges" style="margin-bottom:20px;"></div>
+
     <div class="section-title">Parcours réalisés</div>
     <div id="participant-map-wrap" class="chart-card" style="padding:0; overflow:hidden;"><div id="participant-map"></div></div>
     <div class="page-sub" style="margin-top:8px; margin-bottom:20px;">Touchez un tracé pour ouvrir sa fiche.</div>
@@ -695,6 +708,16 @@
     <div style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">Vous avez débloqué les parcours suivants :</div>
     <div id="unlock-modal-list" style="max-height:40vh; overflow-y:auto; margin-bottom:20px; text-align:left;"></div>
     <button class="btn btn-primary" id="unlock-modal-close" style="width:100%;">Super !</button>
+  </div>
+</div>
+
+<div id="badge-modal" style="display:none; position:fixed; inset:0; background:rgba(8,9,11,0.88); z-index:3800; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+  <div style="background:var(--surface); border:1px solid var(--accent); border-radius:16px; padding:28px; max-width:380px; width:100%; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+    <div style="font-size:34px; margin-bottom:8px;">🏅</div>
+    <div style="font-family:'Space Grotesk',sans-serif; font-size:20px; font-weight:700; margin-bottom:6px; color:var(--text);" id="badge-modal-title">Nouveau badge !</div>
+    <div style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">Bravo, vous venez de débloquer :</div>
+    <div id="badge-modal-list" style="max-height:40vh; overflow-y:auto; margin-bottom:20px; text-align:left;"></div>
+    <button class="btn btn-primary" id="badge-modal-close" style="width:100%;">Génial !</button>
   </div>
 </div>
 
@@ -1751,6 +1774,115 @@ function showParticipant() { adminView.style.display = 'none'; eventsView.style.
   participantView.classList.add('has-header'); participantView.style.display = 'block';
 }
 
+/* ---------- BADGES ----------
+   Calculés à partir des validations du participant (aucune donnée supplémentaire stockée).
+   Pour ajouter un badge : une ligne dans buildBadgeDefs(). Métriques : count (parcours),
+   dist (km cumulés), gain (D+ cumulé en m), photos, gpx. Niveaux : bronze, silver, gold, legend. */
+const BADGE_TIERS = {
+  bronze: { outer: '#B87333', inner: '#8A5524', ring: '#E0A36B', ribbon: '#6B3F18' },
+  silver: { outer: '#BCC2CC', inner: '#7F8793', ring: '#EEF1F6', ribbon: '#555D69' },
+  gold:   { outer: '#F2B93B', inner: '#B87F0E', ring: '#FFE08A', ribbon: '#8F6006' },
+  legend: { outer: '#FF5A1F', inner: '#A8340A', ring: '#FFA37A', ribbon: '#7A2306' }
+};
+
+function buildBadgeDefs() {
+  const total = TRACE_LIST.length;
+  const defs = [];
+  const add = (metric, target, icon, name, desc, tier) =>
+    defs.push({ id: metric + '-' + target, metric, target, icon, name, desc, tier });
+
+  // Nombre de parcours
+  [[1, '🚩', 'Premier tour', 'bronze'], [5, '🚵', 'Cinq étapes', 'bronze'], [10, '🔥', 'Dix parcours', 'silver'],
+   [25, '⚡', 'Quart de siècle', 'silver'], [50, '👑', 'Cinquante', 'gold']].forEach(b => {
+    if (b[0] < total) add('count', b[0], b[1], b[2], b[0] === 1 ? 'Valider un parcours' : 'Valider ' + b[0] + ' parcours', b[3]);
+  });
+  if (total > 0) add('count', total, '🏁', 'Tous les parcours', 'Valider les ' + total + ' parcours', 'legend');
+
+  // Distance cumulée
+  [[50, '🛣️', 'Échauffement', 'bronze'], [100, '🧭', 'Centurion', 'silver'], [250, '🗺️', 'Explorateur', 'silver'],
+   [500, '🌍', 'Globe-trotteur', 'gold'], [1000, '🏆', 'Mille bornes', 'legend']].forEach(b =>
+    add('dist', b[0], b[1], b[2], 'Cumuler ' + b[0] + ' km', b[3]));
+
+  // Dénivelé cumulé
+  [[500, '⛰️', 'Petite bosse', 'bronze'], [1500, '🏔️', 'Grimpeur', 'silver'], [3000, '🧗', 'Montagnard', 'silver'],
+   [6000, '🗻', 'Chèvre de montagne', 'gold'], [10000, '🌋', 'Sommet', 'legend']].forEach(b =>
+    add('gain', b[0], b[1], b[2], 'Cumuler ' + b[0] + ' m de D+', b[3]));
+
+  // Contribution
+  [[1, '📸', 'Photographe', 'bronze'], [5, '🖼️', 'Reporter photo', 'silver'], [15, '🎞️', 'Galerie d\'art', 'gold']].forEach(b =>
+    add('photos', b[0], b[1], b[2], b[0] === 1 ? 'Partager une photo' : 'Partager ' + b[0] + ' photos', b[3]));
+  [[1, '🛰️', 'Traceur', 'bronze'], [5, '📡', 'Fidèle au GPS', 'silver'], [15, '📲', 'Maître du GPX', 'gold']].forEach(b =>
+    add('gpx', b[0], b[1], b[2], b[0] === 1 ? 'Valider avec une trace GPX' : 'Valider ' + b[0] + ' fois avec une trace GPX', b[3]));
+
+  return defs;
+}
+
+function statsFromEntries(entries) {
+  let dist = 0, gain = 0, photos = 0, gpx = 0;
+  entries.forEach(e => {
+    const t = TRACES[e.traceId];
+    if (t) { dist += t.stats.distance_km; gain += t.stats.gain_m; }
+    if (e.photo) photos++;
+    if (e.viaGpx) gpx++;
+  });
+  return { count: entries.length, dist, gain, photos, gpx };
+}
+
+function badgeUnlockedIds(stats) {
+  return new Set(buildBadgeDefs().filter(d => stats[d.metric] >= d.target).map(d => d.id));
+}
+
+function badgeSvg(d) {
+  const c = BADGE_TIERS[d.tier];
+  return '<svg viewBox="0 0 80 92" width="64" height="74" aria-hidden="true">' +
+    '<path d="M25 58 L15 88 L29 81 L37 90 L43 62 Z" fill="' + c.ribbon + '"/>' +
+    '<path d="M55 58 L65 88 L51 81 L43 90 L37 62 Z" fill="' + c.ribbon + '"/>' +
+    '<circle cx="40" cy="38" r="33" fill="' + c.outer + '" stroke="' + c.ring + '" stroke-width="2"/>' +
+    '<circle cx="40" cy="38" r="25" fill="' + c.inner + '" stroke="' + c.ring + '" stroke-width="1.5" stroke-dasharray="2 3"/>' +
+    '<text x="40" y="48" text-anchor="middle" font-size="28">' + d.icon + '</text></svg>';
+}
+
+function badgeProgressText(d, stats) {
+  const cur = stats[d.metric] || 0;
+  const fmt = v => (d.metric === 'dist' || d.metric === 'gain') ? Math.round(v) : v;
+  return fmt(Math.min(cur, d.target)) + ' / ' + d.target;
+}
+
+function renderParticipantBadges(entries) {
+  const grid = document.getElementById('participant-badges');
+  const counter = document.getElementById('participant-badges-count');
+  if (!grid) return;
+  const stats = statsFromEntries(entries);
+  const defs = buildBadgeDefs();
+  const done = defs.filter(d => stats[d.metric] >= d.target).length;
+  if (counter) counter.textContent = '(' + done + ' / ' + defs.length + ')';
+  grid.innerHTML = defs.map(d => {
+    const ok = stats[d.metric] >= d.target;
+    return '<div class="badge-item ' + (ok ? 'is-unlocked' : 'is-locked') + '" title="' + escHtml(d.desc) + '">' +
+      '<div class="badge-art">' + badgeSvg(d) + '</div>' +
+      '<div class="badge-name">' + escHtml(d.name) + '</div>' +
+      '<div class="badge-desc">' + escHtml(d.desc) + '</div>' +
+      (ok ? '' : '<div class="badge-progress">' + badgeProgressText(d, stats) + '</div>') +
+    '</div>';
+  }).join('');
+}
+
+function showBadgePopup(defs) {
+  const modal = document.getElementById('badge-modal');
+  const list = document.getElementById('badge-modal-list');
+  if (!modal || !list || !defs.length) return;
+  document.getElementById('badge-modal-title').textContent = defs.length > 1 ? 'Nouveaux badges !' : 'Nouveau badge !';
+  list.innerHTML = defs.map(d =>
+    '<div class="badge-popup-row"><div class="badge-art">' + badgeSvg(d) + '</div>' +
+    '<div><div class="badge-name" style="margin-top:0; font-size:14px;">' + escHtml(d.name) + '</div>' +
+    '<div class="badge-desc">' + escHtml(d.desc) + '</div></div></div>'
+  ).join('');
+  modal.style.display = 'flex';
+}
+document.getElementById('badge-modal-close').addEventListener('click', () => {
+  document.getElementById('badge-modal').style.display = 'none';
+});
+
 function openParticipant(uid) {
   let p = participantsIndex[uid];
   if (!p && currentUser && uid === currentUser.uid) {
@@ -1798,6 +1930,8 @@ function openParticipant(uid) {
     '<div>🏁 ' + p.entries.length + ' parcours × ' + POINTS_PARCOURS + ' pts = <strong style="color:var(--text);">' + parcoursPts + ' pts</strong></div>' +
     '<div>📷 ' + photoCount + ' photo' + (photoCount > 1 ? 's' : '') + ' × ' + POINTS_PHOTO + ' pts = <strong style="color:var(--text);">' + photoPts + ' pts</strong></div>' +
     '<div>🛰️ ' + gpxCount + ' trace' + (gpxCount > 1 ? 's' : '') + ' GPX × ' + POINTS_GPX + ' pts = <strong style="color:var(--text);">' + gpxPts + ' pts</strong></div>';
+
+  renderParticipantBadges(p.entries);
 
   const galleryTitle = document.getElementById('participant-gallery-title');
   const galleryEl = document.getElementById('participant-gallery');
@@ -2645,6 +2779,8 @@ async function performValidation(source, durationSeconds) {
   if (!currentUser || !currentTraceId) return;
   validateMsg.className = 'msg'; validateMsg.textContent = 'Enregistrement…';
   try {
+    const prevEntries = (participantsIndex[currentUser.uid] && participantsIndex[currentUser.uid].entries) || [];
+    const alreadyHad = prevEntries.some(e => e.traceId === currentTraceId);
     const payload = { nom: currentUser.displayName || currentUser.email, date: serverTimestamp() };
     if (photoDataUrl) payload.photo = photoDataUrl;
     if (source === 'gpx') payload.viaGpx = true;
@@ -2662,6 +2798,14 @@ async function performValidation(source, durationSeconds) {
     validateMsg.textContent = source === 'gpx' ? 'Validé automatiquement via votre trace GPX !' : 'Validation enregistrée !';
     isValidatedForCurrentTrace = true;
     unlockNearbyTraces(currentTraceId);
+    if (!alreadyHad) {
+      // Nouveaux badges obtenus grâce à cette validation
+      const newEntry = { traceId: currentTraceId, photo: photoDataUrl || null, viaGpx: source === 'gpx' };
+      const beforeIds = badgeUnlockedIds(statsFromEntries(prevEntries));
+      const afterIds = badgeUnlockedIds(statsFromEntries(prevEntries.concat([newEntry])));
+      const fresh = buildBadgeDefs().filter(d => afterIds.has(d.id) && !beforeIds.has(d.id));
+      if (fresh.length) showBadgePopup(fresh);
+    }
     if (isVotedForCurrentTrace) {
       setTimeout(showHome, 800); // déjà noté : retour direct à l'accueil
     } else {
