@@ -1377,11 +1377,30 @@ let aggloBuilt = false;
 const AGGLO_EPCI_CODE = '200066389';
 const AGGLO_CACHE_KEY = 'vtt_agglo_outline_v1';
 
+let aggloBounds = null;
+
 function drawAggloOutline(geometry) {
-  L.geoJSON(geometry, {
+  const gj = L.geoJSON(geometry, {
     pane: 'aggloPane', interactive: false,
     style: { color: '#CFCFCF', weight: 1.5, opacity: 0.9, fill: false, className: 'agglo-outline' }
   }).addTo(aggloLayer);
+  aggloBounds = gj.getBounds();
+  fitHomeView(); // visiteur : recentre la carte sur la limite entière de l'agglo
+}
+
+// Cadrage de la carte d'accueil : sur les tracés visibles s'il y en a (connecté),
+// sinon (visiteur) sur la limite complète de Saint-Lô Agglo.
+function fitHomeView() {
+  if (!homeMap || homeView.style.display !== 'block') return;
+  homeMap.invalidateSize();
+  const allBounds = TRACE_LIST.filter(t => t._polygon).map(t => t._polygon.getBounds());
+  if (allBounds.length) {
+    let bounds = allBounds[0];
+    allBounds.forEach(b => { bounds = bounds.extend(b); });
+    homeMap.fitBounds(bounds, { padding: [40, 40] });
+  } else if (aggloBounds && aggloBounds.isValid()) {
+    homeMap.fitBounds(aggloBounds, { padding: [20, 20] });
+  }
 }
 
 async function buildAggloOutline() {
@@ -1670,15 +1689,7 @@ function showHome() { adminView.style.display = 'none'; eventsView.style.display
   appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none';
   homeView.classList.add('has-header'); homeView.style.display = 'block';
   setTimeout(() => {
-    if (homeMap) {
-      homeMap.invalidateSize();
-      const allBounds = TRACE_LIST.filter(t => t._polygon).map(t => t._polygon.getBounds());
-      if (allBounds.length) {
-        let bounds = allBounds[0];
-        allBounds.forEach(b => { bounds = bounds.extend(b); });
-        homeMap.fitBounds(bounds, { padding: [40, 40] });
-      }
-    }
+    fitHomeView();
   }, 60);
 }
 function showApp() { adminView.style.display = 'none'; eventsView.style.display = 'none';
