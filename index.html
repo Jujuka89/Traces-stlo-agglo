@@ -48,6 +48,9 @@
   }
   .site-logo { display: flex; align-items: center; gap: 9px; font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: clamp(28px, 8vw, 44px); line-height: 1.1; color: var(--text); letter-spacing: -0.02em; text-shadow: 0 1px 4px rgba(0,0,0,0.6); }
   .site-logo .icon { font-size: 1.05em; }
+  .site-logo .wheel-o { display: inline-block; width: 0.74em; height: 0.74em; vertical-align: -0.06em; margin: 0 0.02em; animation: wheel-spin 2.4s linear infinite; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6)); }
+  @keyframes wheel-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .site-logo .wheel-o { animation: none; } }
   .nav-menu { display: flex; align-items: center; gap: 14px; }
   .nav-menu a { color: var(--text-dim); text-decoration: none; font-size: 13px; font-weight: 500; cursor: pointer; transition: color 0.15s ease; }
   .nav-menu a:hover { color: var(--accent); }
@@ -349,7 +352,17 @@
 <div id="loading-screen">Chargement des parcours…</div>
 
 <header id="site-header">
-  <div class="site-logo"><span class="icon">🚵</span> Ride to Saint-Lô </div>
+  <div class="site-logo"><span class="icon">🚵</span><span class="logo-text" aria-label="Ride to Saint-Lô">Ride t<svg class="wheel-o" viewBox="0 0 40 40" aria-hidden="true">
+      <circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" stroke-width="5" stroke-dasharray="4.2 2.6"/>
+      <circle cx="20" cy="20" r="13.6" fill="none" stroke="#FF5A1F" stroke-width="1.6"/>
+      <g stroke="currentColor" stroke-width="1" stroke-linecap="round">
+        <line x1="20" y1="7" x2="20" y2="33"/>
+        <line x1="7" y1="20" x2="33" y2="20"/>
+        <line x1="10.8" y1="10.8" x2="29.2" y2="29.2"/>
+        <line x1="29.2" y1="10.8" x2="10.8" y2="29.2"/>
+      </g>
+      <circle cx="20" cy="20" r="2.6" fill="#FF5A1F"/>
+    </svg> Saint-Lô</span></div>
   <nav class="nav-menu">
     <a href="#" id="nav-home-link">Accueil</a>
     <a href="#" id="nav-parcours-link">Parcours</a>
