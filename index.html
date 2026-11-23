@@ -46,8 +46,8 @@
     gap: 8px;
     padding: 14px 18px; box-sizing: border-box; z-index: 2200;
   }
-  .site-logo { display: flex; align-items: center; gap: 9px; font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 16px; color: var(--text); letter-spacing: -0.01em; text-shadow: 0 1px 4px rgba(0,0,0,0.6); }
-  .site-logo .icon { font-size: 20px; }
+  .site-logo { display: flex; align-items: center; gap: 9px; font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: clamp(28px, 8vw, 44px); line-height: 1.1; color: var(--text); letter-spacing: -0.02em; text-shadow: 0 1px 4px rgba(0,0,0,0.6); }
+  .site-logo .icon { font-size: 1.05em; }
   .nav-menu { display: flex; align-items: center; gap: 14px; }
   .nav-menu a { color: var(--text-dim); text-decoration: none; font-size: 13px; font-weight: 500; cursor: pointer; transition: color 0.15s ease; }
   .nav-menu a:hover { color: var(--accent); }
@@ -102,7 +102,7 @@
   .msg.ok { color: var(--validated); }
 
   #admin-view { display: none; }
-  #admin-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
+  #admin-view.has-header .content { padding-top: 136px; padding-bottom: 70px; }
   .admin-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
   .admin-card.is-pending { border-color: var(--accent); }
   .admin-actions { display: flex; gap: 8px; margin-top: 12px; }
@@ -117,7 +117,7 @@
   #admin-users-search { width: 100%; box-sizing: border-box; margin-bottom: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-size: 14px; }
   #nav-admin-link { display: none; color: var(--accent) !important; }
   #events-view { display: none; }
-  #events-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
+  #events-view.has-header .content { padding-top: 136px; padding-bottom: 70px; }
   .event-card { display: flex; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; transition: border-color 0.15s ease, transform 0.1s ease; }
   .event-card:hover { border-color: var(--accent); transform: translateY(-1px); }
   .event-date { flex-shrink: 0; width: 58px; text-align: center; background: var(--accent-soft); border: 1px solid rgba(255,90,31,0.35); border-radius: 10px; padding: 8px 0; align-self: flex-start; }
@@ -145,7 +145,7 @@
   .events-empty { color: var(--text-dim); font-size: 14px; padding: 24px 0; text-align: center; }
 
   #home-view { display: none; }
-  #home-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
+  #home-view.has-header .content { padding-top: 136px; padding-bottom: 70px; }
   #home-map { width: 100%; height: 400px; display: block; filter: saturate(0.9) brightness(0.95); }
   #home-map-wrap, #map-wrap {
     border: 1px solid var(--line) !important;
@@ -209,7 +209,7 @@
   .back-btn:hover { border-color: var(--accent); color: var(--accent); }
 
   #app-view { display: none; }
-  #app-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
+  #app-view.has-header .content { padding-top: 136px; padding-bottom: 70px; }
   #map { width: 100%; height: 300px; display: block; filter: saturate(0.9) brightness(0.95); }
   #participant-map { width: 100%; height: 300px; display: block; filter: saturate(0.9) brightness(0.95); }
   #participant-map-wrap {
@@ -220,16 +220,16 @@
   }
 
   #leaderboard-view { display: none; }
-  #leaderboard-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
+  #leaderboard-view.has-header .content { padding-top: 136px; padding-bottom: 70px; }
 
   #participant-view { display: none; }
-  #participant-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
+  #participant-view.has-header .content { padding-top: 136px; padding-bottom: 70px; }
 
   #parcours-view { display: none; }
-  #parcours-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
+  #parcours-view.has-header .content { padding-top: 136px; padding-bottom: 70px; }
 
   #gallery-view { display: none; }
-  #gallery-view.has-header .content { padding-top: 108px; padding-bottom: 70px; }
+  #gallery-view.has-header .content { padding-top: 136px; padding-bottom: 70px; }
   .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); gap: 3px; }
   .gallery-item { background: var(--surface); border-radius: 0; overflow: hidden; }
   .gallery-item img.gallery-thumb { width: 100%; height: 100%; aspect-ratio: 1; object-fit: cover; cursor: pointer; display: block; }
@@ -529,7 +529,7 @@
 
 <div id="admin-view">
   <div class="content">
-    <div class="page-title" style="margin-top:20px; font-size:clamp(40px, 11vw, 64px); line-height:1.05; letter-spacing:-0.02em; margin-bottom:10px;">Administration</div>
+    <div class="page-title" style="margin-top:20px;">Administration</div>
     <div class="page-sub">Propositions d'événements à valider, événements publiés et liste des inscrits.</div>
     <div class="section-title">Propositions en attente <span id="admin-pending-count"></span></div>
     <div id="admin-pending"></div>
