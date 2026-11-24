@@ -1501,7 +1501,7 @@ const IS_MOBILE_MAP = window.matchMedia('(max-width: 700px)').matches;
 function fitHomeTraces(bounds) {
   homeMap.fitBounds(bounds, { padding: IS_MOBILE_MAP ? [12, 12] : [40, 40] });
   if (IS_MOBILE_MAP) {
-    let z = homeMap.getZoom() + 0.35;
+    let z = homeMap.getZoom() + 0.5;
     const done = TRACE_LIST.filter(t => t._done && t._polygon).map(t => t._polygon.getBounds());
     let center = homeMap.getCenter();
     if (done.length) {
