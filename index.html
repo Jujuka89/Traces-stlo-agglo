@@ -470,6 +470,8 @@
         <div class="section-title" style="margin-top:22px;">👥 Derniers participants</div>
         <div class="page-sub">Les 3 dernières validations de parcours.</div>
         <div id="recent-activity-list"></div>
+
+        <button class="btn btn-outline" id="feedback-btn" type="button" style="margin-top:22px; font-family:'Inter',sans-serif; font-size:14px; cursor:pointer;">💬 Envoyez-nous vos remarques</button>
       </div>
     </div>
   </div>
@@ -603,6 +605,8 @@
         <div id="admin-photos"></div>
       </div>
     </div>
+    <div class="section-title" style="margin-top:32px;">Remarques reçues <span id="admin-remarks-count"></span></div>
+    <div id="admin-remarks"></div>
   </div>
 </div>
 
@@ -703,6 +707,29 @@
       <p style="margin:12px 0; color:var(--accent); font-weight:600;">À vous de jouer et de relever le challenge !</p>
     </div>
     <button class="btn btn-primary" id="about-project-close" style="width:100%; margin-top:10px;">Fermer</button>
+  </div>
+</div>
+
+<div id="feedback-modal" style="display:none; position:fixed; inset:0; background:rgba(8,9,11,0.9); z-index:3650; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+  <div style="background:var(--surface); border:1px solid var(--accent); border-radius:16px; padding:26px; max-width:440px; width:100%; max-height:85vh; overflow-y:auto; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+    <div style="font-family:'Space Grotesk',sans-serif; font-size:20px; font-weight:700; margin-bottom:4px; color:var(--text);">💬 Vos remarques</div>
+    <div style="font-size:13px; color:var(--text-dim); margin-bottom:16px; line-height:1.5;">Une idée, un souci, un parcours à corriger ? Dites-nous tout.</div>
+
+    <div id="feedback-login-needed" style="display:none; background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:16px; font-size:14px; color:var(--text-dim); margin-bottom:12px;">
+      Connectez-vous pour envoyer une remarque.<br><br>
+      <a href="#" id="feedback-login-link" style="color:var(--accent); font-weight:600; text-decoration:none;">Se connecter / s'inscrire →</a>
+    </div>
+
+    <div id="feedback-form">
+      <textarea id="feedback-text" maxlength="1000" placeholder="Votre message…" style="width:100%; box-sizing:border-box; min-height:130px; padding:12px 14px; border:1px solid var(--line); border-radius:8px; font-size:14px; font-family:'Inter',sans-serif; background:var(--surface-2); color:var(--text); resize:vertical;"></textarea>
+      <div id="feedback-count" style="font-size:11px; color:var(--text-dim); text-align:right; margin:4px 0 10px;">0 / 1000</div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-grey" id="feedback-cancel" type="button" style="flex:1;">Annuler</button>
+        <button class="btn btn-primary" id="feedback-send" type="button" style="flex:1;">Envoyer</button>
+      </div>
+      <div class="msg" id="feedback-status"></div>
+    </div>
+    <button class="btn btn-grey" id="feedback-close-login" type="button" style="display:none; width:100%;">Fermer</button>
   </div>
 </div>
 
@@ -958,6 +985,37 @@ function renderAdminGallery() {
   }).join('') + '</div>';
 }
 
+/* ---------- REMARQUES (admin) ----------
+   Les remarques envoyées depuis l'accueil sont enregistrées dans la collection Firestore « remarques ».
+   Seul l'administrateur peut les lire et les supprimer (règles Firestore à ajouter, voir les explications fournies). */
+let adminRemarks = {};
+let unsubAdminRemarks = null;
+function watchAdminRemarks() {
+  if (unsubAdminRemarks) return;
+  unsubAdminRemarks = onSnapshot(collection(db, 'remarques'), (snap) => {
+    adminRemarks = {};
+    snap.forEach(d => { adminRemarks[d.id] = { ...d.data(), _id: d.id }; });
+    renderAdminRemarks();
+  }, (e) => {
+    document.getElementById('admin-remarks').innerHTML = '<div class="events-empty" style="color:#FF6B6B;">Lecture impossible (' + escHtml(e.code || e.message) + '). Vérifiez vos règles Firestore.</div>';
+  });
+}
+function renderAdminRemarks() {
+  const box = document.getElementById('admin-remarks');
+  if (!box) return;
+  const list = Object.values(adminRemarks).sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
+  document.getElementById('admin-remarks-count').textContent = list.length ? '(' + list.length + ')' : '';
+  box.innerHTML = list.length ? list.map(r => {
+    const dateStr = r.date?.seconds ? new Date(r.date.seconds * 1000).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    const meta = [r.nom || 'Anonyme', r.email || '', dateStr].filter(Boolean).join(' · ');
+    return '<div class="admin-card">' +
+      '<div class="event-meta" style="margin-bottom:8px;">' + escHtml(meta) + '</div>' +
+      '<div class="event-desc" style="white-space:pre-wrap; color:var(--text);">' + escHtml(r.message || '') + '</div>' +
+      '<div class="admin-actions"><button class="btn btn-danger" data-admin="delremark" data-id="' + escHtml(r._id) + '">🗑 Supprimer</button></div>' +
+    '</div>';
+  }).join('') : '<div class="events-empty">Aucune remarque pour le moment.</div>';
+}
+
 document.getElementById('admin-view').addEventListener('click', async (ev) => {
   const btn = ev.target.closest('[data-admin]');
   if (!btn || !isAdmin()) return;
@@ -980,6 +1038,8 @@ document.getElementById('admin-view').addEventListener('click', async (ev) => {
       if (confirm('Refuser et supprimer cette proposition ?')) await deleteDoc(doc(db, 'evenements_proposes', id));
     } else if (action === 'unpublish') {
       if (confirm('Retirer cet événement du site ?')) await deleteDoc(doc(db, 'evenements', id));
+    } else if (action === 'delremark') {
+      if (confirm('Supprimer cette remarque ?')) await deleteDoc(doc(db, 'remarques', id));
     } else if (action === 'delphoto') {
       if (confirm('Supprimer cette photo de ' + (btn.dataset.name || 'ce participant') + ' ?\n\nLe parcours reste validé, seule la photo est retirée (et ses 2 points).')) {
         await updateDoc(doc(db, 'traces', btn.dataset.trace, 'validations', id), { photo: deleteField() });
@@ -1827,7 +1887,7 @@ function showAdmin() {
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none'; eventsView.style.display = 'none';
   adminView.classList.add('has-header'); adminView.style.display = 'block';
-  watchAdminProposals(); watchPublicEvents(); renderAdminPublished(); watchAdminUsers(); renderAdminUsers(); renderAdminGallery();
+  watchAdminProposals(); watchPublicEvents(); renderAdminPublished(); watchAdminUsers(); renderAdminUsers(); renderAdminGallery(); watchAdminRemarks(); renderAdminRemarks();
   window.scrollTo(0, 0);
 }
 function showParticipant() { adminView.style.display = 'none'; eventsView.style.display = 'none';
@@ -2641,6 +2701,7 @@ onAuthStateChanged(auth, async (user) => {
   updateAdminUI();
   if (!isAdmin() && unsubAdminProposals) { unsubAdminProposals(); unsubAdminProposals = null; }
   if (!isAdmin() && unsubAdminUsers) { unsubAdminUsers(); unsubAdminUsers = null; adminUsers = {}; }
+  if (!isAdmin() && unsubAdminRemarks) { unsubAdminRemarks(); unsubAdminRemarks = null; adminRemarks = {}; }
   if (user) {
     document.body.classList.remove('is-visitor');
     document.getElementById('nav-logout-link').textContent = 'Déconnexion';
