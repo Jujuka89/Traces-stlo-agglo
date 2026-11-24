@@ -329,10 +329,11 @@
 
   .news-ticker { display: flex; align-items: center; gap: 8px; margin-top: 8px; background: rgba(10,11,13,0.6); backdrop-filter: blur(4px); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
   .news-ticker-label { flex-shrink: 0; font-size: 13px; line-height: 1; }
+  .news-ticker { min-width: 0; max-width: 100%; box-sizing: border-box; overflow: hidden; }
   .news-ticker-view { flex: 1; min-width: 0; overflow: hidden; }
   .news-ticker-track { display: inline-flex; white-space: nowrap; will-change: transform; animation: news-scroll 30s linear infinite; }
   .news-ticker:hover .news-ticker-track { animation-play-state: paused; }
-  .news-ticker-track span { font-size: 12.5px; color: #F4F4F2; padding-left: var(--vw, 100vw); padding-right: 24px; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+  .news-ticker-track span { font-size: 12.5px; color: #F4F4F2; padding-right: 48px; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
   .news-ticker-track b { font-family: "Space Grotesk", sans-serif; color: #FFFFFF; }
   @keyframes news-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   .admin-news-add { display: flex; gap: 8px; margin-bottom: 10px; }
@@ -342,6 +343,7 @@
   .admin-news-row .admin-news-text { flex: 1; min-width: 0; word-break: break-word; }
   .admin-news-row .admin-news-date { flex: none; font-size: 11px; color: var(--text-dim); }
   .admin-news-row .btn { width: auto; flex: none; padding: 6px 10px; font-size: 12px; }
+  .admin-news-row .btn:disabled { opacity: 0.3; cursor: default; }
   .news-item {
     background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent);
     border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;
@@ -366,7 +368,9 @@
   .hero-panel .hero-stat { font-family: "Space Grotesk", sans-serif; font-weight: 700; color: #FF7848; font-size: 19px; }
   .hero-panel .hero-note { font-style: italic; color: var(--text-dim); font-size: 13px; }
   /* Bannière connectée : mes stats en cases */
-  .hero-panel .member-only { margin-bottom: auto; } /* connecté : saison + stats collées en haut de la bannière */
+  .home-col-main { min-width: 0; }
+  .hero-panel { min-width: 0; }
+  .hero-panel .member-only { margin-bottom: auto; min-width: 0; max-width: 100%; } /* connecté : saison + stats collées en haut de la bannière */
   .hero-season { color: #FFFFFF; font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 22px; text-align: center; margin-bottom: 10px; text-shadow: 0 1px 4px rgba(0,0,0,0.75); }
   .hero-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
   .hero-stat-box { background: rgba(10,11,13,0.6); backdrop-filter: blur(4px); border: 1px solid var(--line); border-radius: 8px; padding: 7px 4px; text-align: center; text-decoration: none; display: flex; flex-direction: column; justify-content: center; }
@@ -638,7 +642,7 @@
       </div>
     </div>
     <div class="section-title" style="margin-top:32px;">Actualités défilantes <span id="admin-news-count"></span></div>
-    <div class="page-sub">Ces messages défilent dans la bannière de l'accueil (les 10 plus récents).</div>
+    <div class="page-sub">Ces messages défilent dans la bannière de l'accueil (les 10 premiers de la liste, dans cet ordre).</div>
     <div class="admin-news-add">
       <input type="text" id="admin-news-input" maxlength="200" placeholder="Ex : Nouveau parcours disponible à Torigny !" autocomplete="off">
       <button class="btn btn-primary" id="admin-news-add-btn" type="button">Ajouter</button>
@@ -1293,10 +1297,13 @@ function watchNews() {
           id: docSnap.id,
           title: d.title || '',
           body: d.body || '',
-          seconds: (d.date && d.date.seconds) ? d.date.seconds : Math.floor(Date.now() / 1000)
+          seconds: (d.date && d.date.seconds) ? d.date.seconds : Math.floor(Date.now() / 1000),
+          order: (typeof d.order === 'number') ? d.order : null
         });
       });
-      items.sort((a, b) => b.seconds - a.seconds);
+      // ordre choisi par l'admin (champ order) ; sans ordre : les plus récentes d'abord, après les rangées
+      const key = n => (n.order !== null) ? n.order : 1e9 - n.seconds;
+      items.sort((a, b) => key(a) - key(b));
       newsItems = items;
       renderNews(items.slice(0, 10));
       renderAdminNews();
@@ -1318,25 +1325,9 @@ function renderNews(items) {
   // le contenu est doublé pour une boucle sans coupure (l'animation défile de 50 %)
   track.innerHTML = '<span>' + one + '</span><span>' + one + '</span>';
   const chars = clean.reduce((n, a) => n + a.title.length + a.body.length + 6, 0);
-  track.style.animationDuration = Math.max(12, Math.round(chars * 7.5 / 45)) + 's'; // estimation, affinée ci-dessous
+  track.style.animationDuration = Math.max(12, Math.round(chars * 7.5 / 45)) + 's'; // ~45 px/s
   box.style.display = 'flex';
-  updateTickerLayout();
 }
-
-// Le texte démarre juste hors de la zone, à droite (padding-left = largeur visible), puis sort à gauche.
-function updateTickerLayout() {
-  const view = document.querySelector('.news-ticker-view');
-  const track = document.getElementById('news-ticker-track');
-  if (!view || !track || !view.clientWidth) return;
-  track.style.setProperty('--vw', view.clientWidth + 'px');
-  const copy = track.scrollWidth / 2;
-  if (copy > 0) track.style.animationDuration = Math.max(10, Math.round(copy / 45)) + 's'; // ~45 px/s
-}
-(function () {
-  const view = document.querySelector('.news-ticker-view');
-  if (view && window.ResizeObserver) new ResizeObserver(updateTickerLayout).observe(view);
-  else window.addEventListener('resize', updateTickerLayout);
-})();
 
 /* ---------- ACTUALITÉS (admin) : ajout et suppression ---------- */
 function renderAdminNews() {
@@ -1344,11 +1335,15 @@ function renderAdminNews() {
   if (!box) return;
   const cnt = document.getElementById('admin-news-count');
   if (cnt) cnt.textContent = newsItems.length ? '(' + newsItems.length + ')' : '';
-  box.innerHTML = newsItems.length ? newsItems.map(n => {
+  box.innerHTML = newsItems.length ? newsItems.map((n, i) => {
     const d = new Date(n.seconds * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-    return '<div class="admin-news-row">' +
+    const hidden = i >= 10; // le bandeau n'affiche que les 10 premières
+    return '<div class="admin-news-row"' + (hidden ? ' style="opacity:0.5;" title="Non affichée dans le bandeau (au-delà de 10)"' : '') + '>' +
+      '<span class="admin-news-date">' + (i + 1) + '.</span>' +
       '<div class="admin-news-text"><b>' + escHtml(n.title) + '</b>' + (n.body ? ' ' + escHtml(n.body) : '') + '</div>' +
       '<span class="admin-news-date">' + d + '</span>' +
+      '<button class="btn btn-grey admin-news-move" data-id="' + escHtml(n.id) + '" data-dir="-1" type="button"' + (i === 0 ? ' disabled' : '') + ' title="Monter">↑</button>' +
+      '<button class="btn btn-grey admin-news-move" data-id="' + escHtml(n.id) + '" data-dir="1" type="button"' + (i === newsItems.length - 1 ? ' disabled' : '') + ' title="Descendre">↓</button>' +
       '<button class="btn btn-grey admin-news-del" data-id="' + escHtml(n.id) + '" type="button">🗑</button>' +
     '</div>';
   }).join('') : '<div class="events-empty">Aucune actualité pour le moment.</div>';
@@ -1367,7 +1362,9 @@ document.getElementById('admin-news-add-btn').addEventListener('click', async ()
   const text = input.value.trim();
   if (!text) { adminNewsMsg('Écrivez le texte de l\'actualité.', true); return; }
   try {
-    await setDoc(doc(collection(db, 'news')), { title: text, body: '', date: serverTimestamp() });
+    const orders = newsItems.map(n => n.order).filter(o => o !== null);
+    const order = orders.length ? Math.min(...orders) - 1 : 0; // nouvelle actualité en tête de liste
+    await setDoc(doc(collection(db, 'news')), { title: text, body: '', date: serverTimestamp(), order });
     input.value = '';
     adminNewsMsg('Actualité ajoutée.', false);
   } catch (e) {
@@ -1378,6 +1375,21 @@ document.getElementById('admin-news-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); document.getElementById('admin-news-add-btn').click(); }
 });
 document.getElementById('admin-news-list').addEventListener('click', async (e) => {
+  const mv = e.target.closest('.admin-news-move');
+  if (mv && isAdmin()) {
+    const i = newsItems.findIndex(n => n.id === mv.dataset.id);
+    const j = i + Number(mv.dataset.dir);
+    if (i < 0 || j < 0 || j >= newsItems.length) return;
+    const list = newsItems.slice();
+    [list[i], list[j]] = [list[j], list[i]];
+    try {
+      await Promise.all(list.map((n, k) => updateDoc(doc(db, 'news', n.id), { order: k })));
+      adminNewsMsg('', false);
+    } catch (err) {
+      adminNewsMsg('Réorganisation impossible (' + (err.code || err.message) + ').', true);
+    }
+    return;
+  }
   const btn = e.target.closest('.admin-news-del');
   if (!btn || !isAdmin()) return;
   if (!confirm('Supprimer cette actualité ?')) return;
