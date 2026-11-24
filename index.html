@@ -81,7 +81,7 @@
   .visitor-only { display: none; }
   body.is-visitor .visitor-only { display: block; }
   body.is-visitor .member-only { display: none !important; }
-  #join-btn { width: 100%; margin-bottom: 22px; font-size: 16px; padding: 14px; }
+  #join-btn { margin-bottom: 22px; font-family: "Inter", sans-serif; font-size: 14px; cursor: pointer; }
   #gate-back { display: inline-block; margin-top: 16px; font-size: 13px; color: var(--text-dim); cursor: pointer; text-decoration: none; }
   #gate-back:hover { color: var(--accent); }
   #gate-view .card { max-width: 380px; width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 32px; box-shadow: 0 20px 50px rgba(0,0,0,0.35); }
@@ -435,7 +435,7 @@
 
       <div class="home-col-todo">
         <div class="visitor-only">
-          <button class="btn btn-primary" id="join-btn" style="width:100%;">Participer gratuitement</button>
+          <button class="btn btn-outline" id="join-btn" type="button">Participer gratuitement</button>
         </div>
 
         <div class="member-only">
