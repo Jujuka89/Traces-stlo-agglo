@@ -2662,6 +2662,57 @@ document.getElementById('about-project-close').addEventListener('click', () => {
   const modal = document.getElementById('about-project-modal');
   if (modal) modal.style.display = 'none';
 });
+/* ---------- ENVOYEZ-NOUS VOS REMARQUES ---------- */
+const feedbackModal = document.getElementById('feedback-modal');
+const feedbackText = document.getElementById('feedback-text');
+const feedbackStatus = document.getElementById('feedback-status');
+
+function openFeedback() {
+  feedbackStatus.textContent = '';
+  const logged = !!currentUser;
+  document.getElementById('feedback-login-needed').style.display = logged ? 'none' : 'block';
+  document.getElementById('feedback-form').style.display = logged ? 'block' : 'none';
+  document.getElementById('feedback-close-login').style.display = logged ? 'none' : 'block';
+  feedbackModal.style.display = 'flex';
+  if (logged) feedbackText.focus();
+}
+function closeFeedback() { feedbackModal.style.display = 'none'; }
+
+document.getElementById('feedback-btn').addEventListener('click', openFeedback);
+document.getElementById('feedback-cancel').addEventListener('click', closeFeedback);
+document.getElementById('feedback-close-login').addEventListener('click', closeFeedback);
+document.getElementById('feedback-login-link').addEventListener('click', (e) => { e.preventDefault(); closeFeedback(); showGate(); });
+feedbackModal.addEventListener('click', (e) => { if (e.target === feedbackModal) closeFeedback(); });
+feedbackText.addEventListener('input', () => {
+  document.getElementById('feedback-count').textContent = feedbackText.value.length + ' / 1000';
+});
+
+document.getElementById('feedback-send').addEventListener('click', async () => {
+  const btn = document.getElementById('feedback-send');
+  if (!currentUser) { openFeedback(); return; }
+  const message = feedbackText.value.trim();
+  if (message.length < 3) { feedbackStatus.className = 'msg err'; feedbackStatus.textContent = 'Écrivez votre message avant d\'envoyer.'; return; }
+  feedbackStatus.className = 'msg'; feedbackStatus.textContent = 'Envoi…';
+  btn.disabled = true;
+  try {
+    await setDoc(doc(collection(db, 'remarques')), {
+      message: message.slice(0, 1000),
+      nom: currentUser.displayName || currentUser.email || 'Anonyme',
+      email: currentUser.email || '',
+      uid: currentUser.uid,
+      date: serverTimestamp()
+    });
+    feedbackStatus.className = 'msg ok'; feedbackStatus.textContent = 'Merci ! Votre remarque a bien été envoyée.';
+    feedbackText.value = '';
+    document.getElementById('feedback-count').textContent = '0 / 1000';
+    setTimeout(closeFeedback, 1500);
+  } catch (e) {
+    feedbackStatus.className = 'msg err'; feedbackStatus.textContent = 'Envoi impossible : ' + (e.code || e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 document.getElementById('gate-back').addEventListener('click', (e) => { e.preventDefault(); showHome(); });
 
 // Mode visiteur : le site est visible, mais tous les parcours sont verrouillés
