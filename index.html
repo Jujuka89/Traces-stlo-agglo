@@ -1496,12 +1496,21 @@ const LABEL_MIN_ZOOM = 11;
 let homeLabelMinZoom = LABEL_MIN_ZOOM; // mobile : abaissé au zoom initial pour voir les noms sans zoomer
 const IS_MOBILE_MAP = window.matchMedia('(max-width: 700px)').matches;
 
-// Cadre la carte d'accueil sur les tracés ; sur mobile, léger zoom en plus pour afficher les noms d'emblée
+// Cadre la carte d'accueil sur les tracés ; sur mobile, très léger zoom en plus pour afficher les noms
+// d'emblée, et carte centrée sur les tracés effectués (s'il y en a).
 function fitHomeTraces(bounds) {
   homeMap.fitBounds(bounds, { padding: IS_MOBILE_MAP ? [12, 12] : [40, 40] });
   if (IS_MOBILE_MAP) {
-    const z = homeMap.getZoom() + 0.5;
-    homeMap.setZoom(z, { animate: false });
+    let z = homeMap.getZoom() + 0.25;
+    const done = TRACE_LIST.filter(t => t._done && t._polygon).map(t => t._polygon.getBounds());
+    let center = homeMap.getCenter();
+    if (done.length) {
+      let db = done[0];
+      done.forEach(b => { db = db.extend(b); });
+      center = db.getCenter();
+      z = Math.min(z, homeMap.getBoundsZoom(db, false, L.point(12, 12))); // tout ce qui est effectué reste visible
+    }
+    homeMap.setView(center, z, { animate: false });
     homeLabelMinZoom = Math.min(LABEL_MIN_ZOOM, z);
   }
   updateLabelVisibility();
@@ -1860,9 +1869,11 @@ async function refreshHomeColors() {
       t._polygon.setStyle(snap.exists()
         ? { color: '#3DDC84', fillColor: '#3DDC84', fillOpacity: 0.4 }
         : { color: '#FF5A1F', fillColor: '#FF5A1F', fillOpacity: 0.22 });
+      t._done = snap.exists();
       if (snap.exists()) t._polygon.bringToFront(); // validé : au-dessus des tracés non validés
     } catch (e) { /* reste en rouge si la lecture échoue */ }
   }
+  if (IS_MOBILE_MAP && homeMap && TRACE_LIST.some(t => t._done)) fitHomeView(); // mobile : recentre sur les tracés effectués
 }
 
 document.addEventListener('click', (e) => {
