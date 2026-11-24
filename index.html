@@ -265,6 +265,13 @@
   .gallery-item img.gallery-thumb { width: 100%; height: 100%; aspect-ratio: 1; object-fit: cover; cursor: pointer; display: block; }
   .gallery-caption { padding: 6px 8px; font-size: 11px; color: var(--text); line-height: 1.3; }
   .gallery-caption .gallery-participant { color: var(--text-dim); }
+  /* Visiteur non connecté : photos et légendes de la galerie floutées */
+  body.is-visitor #gallery-grid .gallery-thumb { filter: blur(14px) brightness(0.8); transform: scale(1.08); pointer-events: none; }
+  body.is-visitor #gallery-grid .gallery-item { overflow: hidden; }
+  body.is-visitor #gallery-grid .gallery-caption { filter: blur(5px); user-select: none; pointer-events: none; }
+  .gallery-ph { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 28px; background: linear-gradient(135deg, hsl(var(--h) 35% 28%), hsl(calc(var(--h) + 40) 30% 18%)); filter: blur(7px); transform: scale(1.1); }
+  .gallery-lock-banner { background: var(--surface); border: 1px solid var(--accent); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; font-size: 13px; color: var(--text-dim); text-align: center; }
+  .gallery-lock-banner .btn { margin-top: 10px; width: 100%; }
   .trace-card .leaderboard-rank { margin-right: 6px; }
   .leaderboard-row {
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface);
@@ -532,6 +539,12 @@
   <div class="content">
     <div class="page-title" style="margin-top:20px;">Galerie</div>
     <div class="page-sub">Les photos partagées par les participants, tous parcours confondus.</div>
+    <div class="visitor-only">
+      <div class="gallery-lock-banner">
+        🔒 Les photos sont floutées tant que vous n'êtes pas connecté.
+        <button class="btn btn-primary" id="gallery-join-btn" type="button">Se connecter / s'inscrire</button>
+      </div>
+    </div>
     <div id="gallery-grid" class="gallery-grid"><div style="color:var(--text-dim);">Chargement…</div></div>
   </div>
 </div>
@@ -1369,9 +1382,12 @@ function watchGallery() {
     if (isAdmin() && adminView.style.display === 'block') renderAdminGallery();
     renderGallery(items);
   }, (e) => {
+    // Visiteur sans droit de lecture : on affiche des vignettes floutées pour montrer que la galerie existe
     document.getElementById('gallery-grid').innerHTML = currentUser
       ? '<div style="color:var(--accent);">Erreur de chargement de la galerie : ' + e.code + '</div>'
-      : '<div style="color:var(--text-dim);">Connectez-vous pour voir la galerie.</div>';
+      : Array.from({ length: 18 }, (_, i) =>
+          '<div class="gallery-item"><div class="gallery-ph" style="--h:' + ((i * 47) % 360) + ';">📷</div></div>'
+        ).join('');
   });
 }
 
@@ -2618,6 +2634,7 @@ document.getElementById('nav-logout-link').addEventListener('click', (e) => {
   if (currentUser) signOut(auth); else showGate();
 });
 document.getElementById('join-btn').addEventListener('click', showGate);
+document.getElementById('gallery-join-btn').addEventListener('click', showGate);
 
 let rulesLoaded = false;
 
@@ -3212,6 +3229,7 @@ function watchTraceData(traceId) {
 const lightbox = document.getElementById('lightbox');
 document.addEventListener('click', (e) => {
   if (e.target.classList.contains('thumb')) {
+    if (!currentUser && e.target.closest('#gallery-view')) return; // visiteur : pas d'agrandissement des photos floutées
     document.getElementById('lightbox-img').src = e.target.dataset.full;
     lightbox.style.display = 'flex';
   } else if (e.target === lightbox || e.target.id === 'lightbox-img') {
