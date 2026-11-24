@@ -270,8 +270,7 @@
   body.is-visitor #gallery-grid .gallery-item { overflow: hidden; }
   body.is-visitor #gallery-grid .gallery-caption { filter: blur(5px); user-select: none; pointer-events: none; }
   .gallery-ph { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 28px; background: linear-gradient(135deg, hsl(var(--h) 35% 28%), hsl(calc(var(--h) + 40) 30% 18%)); filter: blur(7px); transform: scale(1.1); }
-  .gallery-lock-banner { background: var(--surface); border: 1px solid var(--accent); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; font-size: 13px; color: var(--text-dim); text-align: center; }
-  .gallery-lock-banner .btn { margin-top: 10px; width: 100%; }
+  .gallery-lock-icon { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 72px; line-height: 1; z-index: 10; pointer-events: none; filter: drop-shadow(0 4px 14px rgba(0,0,0,0.7)); }
   .trace-card .leaderboard-rank { margin-right: 6px; }
   .leaderboard-row {
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface);
@@ -539,12 +538,7 @@
   <div class="content">
     <div class="page-title" style="margin-top:20px;">Galerie</div>
     <div class="page-sub">Les photos partagées par les participants, tous parcours confondus.</div>
-    <div class="visitor-only">
-      <div class="gallery-lock-banner">
-        🔒 Les photos sont floutées tant que vous n'êtes pas connecté.
-        <button class="btn btn-primary" id="gallery-join-btn" type="button">Se connecter / s'inscrire</button>
-      </div>
-    </div>
+    <div class="visitor-only gallery-lock-icon" aria-hidden="true">🔒</div>
     <div id="gallery-grid" class="gallery-grid"><div style="color:var(--text-dim);">Chargement…</div></div>
   </div>
 </div>
@@ -2634,7 +2628,6 @@ document.getElementById('nav-logout-link').addEventListener('click', (e) => {
   if (currentUser) signOut(auth); else showGate();
 });
 document.getElementById('join-btn').addEventListener('click', showGate);
-document.getElementById('gallery-join-btn').addEventListener('click', showGate);
 
 let rulesLoaded = false;
 
