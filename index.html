@@ -1430,8 +1430,19 @@ function renderGallery(items) {
    jamais empêcher le reste du site de fonctionner. */
 let unsubSiteStats = null;
 
+const VISIT_KEY = 'visit-last-day';
+let visitCountedThisLoad = false;
+
+// Une seule visite comptée par appareil et par jour : un rafraîchissement ne rajoute rien.
 function bumpVisitCounter() {
   try {
+    if (visitCountedThisLoad) return;
+    visitCountedThisLoad = true;
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      if (localStorage.getItem(VISIT_KEY) === today) return; // déjà compté aujourd'hui sur cet appareil
+      localStorage.setItem(VISIT_KEY, today);
+    } catch (e) { /* stockage indisponible : on compte quand même, une fois par chargement */ }
     setDoc(doc(db, 'stats', 'site'), { visits: increment(1) }, { merge: true }).catch(() => {});
   } catch (e) { /* ignoré */ }
 }
