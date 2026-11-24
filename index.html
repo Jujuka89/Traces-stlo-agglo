@@ -199,6 +199,16 @@
     padding: 4px 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
   }
   .trace-tooltip::before { border-top-color: var(--line) !important; }
+  /* Noms des tracés écrits en blanc au centre de chaque tracé (carte d'accueil) */
+  .trace-label { pointer-events: none; }
+  .trace-label-inner {
+    position: absolute; transform: translate(-50%, -50%); white-space: nowrap;
+    display: flex; flex-direction: column; align-items: center; text-align: center; line-height: 1.15;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.95), 0 0 7px rgba(0,0,0,0.8);
+  }
+  .trace-label-inner .tl-name { font-family: "Space Grotesk", sans-serif; font-weight: 600; font-size: 12px; color: #FFFFFF; }
+  .trace-label-inner .tl-km { font-family: "Inter", sans-serif; font-weight: 500; font-size: 10.5px; color: #D6D8DE; }
+  #home-map.labels-off .trace-label { display: none; }
   .leaflet-popup-tip { background: var(--surface); }
   /* Tracés de la carte d'accueil : léger halo lumineux + transitions douces */
   #home-map path.home-trace { filter: drop-shadow(0 0 5px rgba(255,90,31,0.55)); transition: fill-opacity 0.15s ease, stroke-width 0.15s ease; }
@@ -1382,6 +1392,45 @@ function restackHomeTraces() {
   TRACE_LIST.forEach(t => { if (t.validated && t._polygon) t._polygon.bringToFront(); });
 }
 
+// Étiquettes des tracés : nom en blanc au centre (✓ si validé, distance dessous).
+// Elles n'apparaissent qu'à partir de ce niveau de zoom, pour ne pas surcharger la carte de loin.
+// (Plus le chiffre est petit, plus les noms s'affichent tôt ; mettre 0 pour les afficher tout le temps.)
+const LABEL_MIN_ZOOM = 11;
+
+function traceLabelPoint(coords) {
+  const fallback = L.polygon(coords).getBounds().getCenter();
+  try {
+    if (window.turf && coords.length > 2) {
+      const ring = coords.map(c => [c[1], c[0]]);
+      const first = ring[0], last = ring[ring.length - 1];
+      if (first[0] !== last[0] || first[1] !== last[1]) ring.push(first);
+      const poly = turf.polygon([ring]);
+      let p = turf.centerOfMass(poly);
+      if (!turf.booleanPointInPolygon(p, poly)) p = turf.pointOnFeature(poly); // garanti à l'intérieur du tracé
+      return L.latLng(p.geometry.coordinates[1], p.geometry.coordinates[0]);
+    }
+  } catch (e) { /* on retombe sur le centre du cadre */ }
+  return fallback;
+}
+
+function buildTraceLabelIcon(t) {
+  return L.divIcon({
+    className: 'trace-label',
+    html: '<div class="trace-label-inner"><span class="tl-name">' + (t.validated ? '✓ ' : '') + escHtml(t.name) + '</span>' +
+          '<span class="tl-km">' + escHtml(t.distance_km) + ' km</span></div>',
+    iconSize: [0, 0]
+  });
+}
+
+function updateTraceLabel(t) {
+  if (t._label) t._label.setIcon(buildTraceLabelIcon(t));
+}
+
+function updateLabelVisibility() {
+  if (!homeMap) return;
+  homeMap.getContainer().classList.toggle('labels-off', homeMap.getZoom() < LABEL_MIN_ZOOM);
+}
+
 function renderHomeTraces() {
   const allBounds = [];
   TRACE_LIST.forEach(t => {
@@ -1393,12 +1442,16 @@ function renderHomeTraces() {
       lineJoin: 'round', className: 'home-trace'
     }).addTo(homeMap);
     t._polygon = poly;
+    t._label = L.marker(traceLabelPoint(fullTrace.coords), {
+      icon: buildTraceLabelIcon(t), interactive: false, keyboard: false, pane: 'labelPane'
+    }).addTo(homeMap);
     poly.bindTooltip(t.name, { sticky: true, direction: 'top', className: 'trace-tooltip' });
     poly.on('click', () => openTrace(t.id));
     // Survol : une copie plus épaisse du tracé s'affiche sur un calque tout en haut (au-dessus des verts aussi)
     poly.on('mouseover', () => showHomeHover(t));
     allBounds.push(poly.getBounds());
   });
+  updateLabelVisibility();
   return allBounds;
 }
 
@@ -1434,6 +1487,7 @@ function fitHomeView() {
   } else if (aggloBounds && aggloBounds.isValid()) {
     homeMap.fitBounds(aggloBounds, { padding: [20, 20] });
   }
+  updateLabelVisibility();
 }
 
 async function buildAggloOutline() {
@@ -1513,6 +1567,10 @@ function renderHome() {
   homeMap.getPane('aggloPane').style.pointerEvents = 'none';
   homeMap.createPane('hoverPane');                 // calque de survol : au-dessus de tous les tracés
   homeMap.getPane('hoverPane').style.zIndex = 450;
+  homeMap.createPane('labelPane');                 // noms des tracés : tout en haut, sans bloquer les clics
+  homeMap.getPane('labelPane').style.zIndex = 460;
+  homeMap.getPane('labelPane').style.pointerEvents = 'none';
+  homeMap.on('zoomend', updateLabelVisibility);
   aggloLayer = L.layerGroup().addTo(homeMap);
   L.control.layers(baseMaps, { '⬜ Limite de Saint-Lô Agglo': aggloLayer }, { position: 'topright', collapsed: true }).addTo(homeMap);
   buildAggloOutline();
@@ -1662,6 +1720,7 @@ function watchAllParticipantCounts() {
     onSnapshot(collection(db, 'traces', t.id, 'validations'), (snap) => {
       t.participants = snap.size;
       t.validated = currentUser ? snap.docs.some(d => d.id === currentUser.uid) : false;
+      updateTraceLabel(t); // ✓ devant le nom si validé
       if (t._polygon) {
         t._polygon.setStyle(t.validated
           ? { color: '#3DDC84', fillColor: '#3DDC84', fillOpacity: 0.4 }
@@ -2503,6 +2562,8 @@ async function enterVisitorMode() {
       t.validated = false;
       if (t._polygon && homeMap) homeMap.removeLayer(t._polygon); // efface les tracés d'une session précédente
       t._polygon = null;
+      if (t._label && homeMap) homeMap.removeLayer(t._label);
+      t._label = null;
     });
     document.body.classList.add('is-visitor');
     document.getElementById('nav-logout-link').textContent = 'Se connecter';
