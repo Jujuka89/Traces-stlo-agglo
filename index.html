@@ -1379,14 +1379,24 @@ function watchGallery() {
     // Visiteur sans droit de lecture : on affiche des vignettes floutées pour montrer que la galerie existe
     document.getElementById('gallery-grid').innerHTML = currentUser
       ? '<div style="color:var(--accent);">Erreur de chargement de la galerie : ' + e.code + '</div>'
-      : Array.from({ length: 18 }, (_, i) =>
-          '<div class="gallery-item"><div class="gallery-ph" style="--h:' + ((i * 47) % 360) + ';">📷</div></div>'
-        ).join('');
+      : galleryPlaceholders(18);
   });
+}
+
+function galleryPlaceholders(n) {
+  const count = Math.min(Math.max(n, 6), 60);
+  return Array.from({ length: count }, (_, i) =>
+    '<div class="gallery-item"><div class="gallery-ph" style="--h:' + ((i * 47) % 360) + ';">📷</div></div>'
+  ).join('');
 }
 
 function renderGallery(items) {
   const grid = document.getElementById('gallery-grid');
+  if (!currentUser) {
+    // Visiteur : aucune vraie photo ni aucun nom n'est mis dans la page (le mode lecture ne peut rien révéler)
+    grid.innerHTML = galleryPlaceholders(items.length);
+    return;
+  }
   if (!items.length) {
     grid.innerHTML = '<div style="color:var(--text-dim);">Aucune photo pour le moment.</div>';
     return;
