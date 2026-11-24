@@ -624,6 +624,9 @@
     </div>
 
     <a class="btn-outline" id="gpx-download" download style="margin-top:12px;">⬇ Télécharger le GPX</a>
+    <a class="btn-outline" id="gpx-visugpx" href="https://www.visugpx.com/editgpx/" target="_blank" rel="noopener noreferrer" style="margin-top:8px;">🗺️ Ouvrir dans VisuGPX</a>
+    <a class="btn-outline" id="gpx-share" href="#" style="margin-top:8px; display:none;">📲 Ouvrir dans une appli</a>
+    <div class="msg" id="gpx-open-msg" style="color:var(--text-dim); margin-top:8px;"></div>
 
     <div class="section-title">Valider mon parcours</div>
     <div class="chart-card">
@@ -2367,11 +2370,60 @@ function initOrUpdateMap(trace) {
   map.fitBounds(track.getBounds(), { padding: [20, 20] });
 }
 
+/* ---------- OUVRIR LE GPX DANS UNE APPLI ----------
+   VisuGPX n'accepte pas de lien direct vers un fichier : le bouton télécharge donc le GPX
+   et ouvre la page EditGPX, où il suffit de le sélectionner. Sur mobile, le bouton
+   « Ouvrir dans une appli » passe par le menu de partage du téléphone (Komoot, Strava,
+   OsmAnd, Garmin, etc.) et envoie le fichier directement à l'appli choisie. */
+function gpxFileFromTrace(trace, mime) {
+  const bin = atob(trace.gpxBase64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new File([bytes], trace.gpxFilename || (trace.id + '.gpx'), { type: mime });
+}
+
+function shareableGpxFile(trace) {
+  if (!trace || !navigator.share || !navigator.canShare) return null;
+  for (const mime of ['application/gpx+xml', 'application/octet-stream']) {
+    try {
+      const f = gpxFileFromTrace(trace, mime);
+      if (navigator.canShare({ files: [f] })) return f;
+    } catch (e) { /* on essaie le type suivant */ }
+  }
+  return null;
+}
+
+function canShareGpx(trace) { return !!shareableGpxFile(trace); }
+
+document.getElementById('gpx-visugpx').addEventListener('click', () => {
+  // Le lien s'ouvre dans un nouvel onglet ; on télécharge le fichier au même moment
+  document.getElementById('gpx-download').click();
+  const msg = document.getElementById('gpx-open-msg');
+  msg.className = 'msg ok';
+  msg.textContent = 'GPX téléchargé. Dans VisuGPX, cliquez sur « Sélectionner un fichier » et choisissez-le.';
+});
+
+document.getElementById('gpx-share').addEventListener('click', async (e) => {
+  e.preventDefault();
+  const trace = TRACES[currentTraceId];
+  const file = shareableGpxFile(trace);
+  const msg = document.getElementById('gpx-open-msg');
+  if (!file) { msg.className = 'msg err'; msg.textContent = 'Partage impossible sur cet appareil : utilisez le téléchargement.'; return; }
+  try {
+    await navigator.share({ files: [file], title: trace.name });
+  } catch (err) {
+    if (err && err.name !== 'AbortError') { msg.className = 'msg err'; msg.textContent = 'Partage impossible sur cet appareil : utilisez le téléchargement.'; }
+  }
+});
+
 /* ---------- FICHE : stats + GPX ---------- */
 function fillDetail(trace) {
   const gpxLink = document.getElementById('gpx-download');
   gpxLink.href = 'data:application/gpx+xml;base64,' + trace.gpxBase64;
   gpxLink.download = trace.gpxFilename;
+
+  document.getElementById('gpx-open-msg').textContent = '';
+  document.getElementById('gpx-share').style.display = canShareGpx(trace) ? 'block' : 'none';
 
   const statsGrid = document.getElementById('stats-grid');
   statsGrid.innerHTML = '';
