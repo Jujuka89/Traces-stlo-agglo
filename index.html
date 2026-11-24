@@ -327,6 +327,21 @@
   }
   .chart-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
 
+  .news-ticker { display: flex; align-items: center; gap: 8px; margin-top: 8px; background: rgba(10,11,13,0.6); backdrop-filter: blur(4px); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+  .news-ticker-label { flex-shrink: 0; font-size: 13px; line-height: 1; }
+  .news-ticker-view { flex: 1; min-width: 0; overflow: hidden; }
+  .news-ticker-track { display: inline-flex; white-space: nowrap; will-change: transform; animation: news-scroll 30s linear infinite; }
+  .news-ticker:hover .news-ticker-track { animation-play-state: paused; }
+  .news-ticker-track span { font-size: 12.5px; color: #F4F4F2; padding-right: 48px; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+  .news-ticker-track b { font-family: "Space Grotesk", sans-serif; color: #FFFFFF; }
+  @keyframes news-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .admin-news-add { display: flex; gap: 8px; margin-bottom: 10px; }
+  .admin-news-add input { flex: 1; min-width: 0; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-size: 14px; }
+  .admin-news-add .btn { width: auto; flex: none; padding: 10px 16px; }
+  .admin-news-row { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; color: var(--text); }
+  .admin-news-row .admin-news-text { flex: 1; min-width: 0; word-break: break-word; }
+  .admin-news-row .admin-news-date { flex: none; font-size: 11px; color: var(--text-dim); }
+  .admin-news-row .btn { width: auto; flex: none; padding: 6px 10px; font-size: 12px; }
   .news-item {
     background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent);
     border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;
@@ -437,6 +452,10 @@
               <div class="hero-stat-box"><div class="hv" id="hero-rank">--</div><div class="hl" id="hero-rank-label">Classement</div></div>
               <a href="#" class="hero-stat-box hero-profile" id="hero-profile-link"><div class="hv">👤</div><div class="hl">Mon profil →</div></a>
             </div>
+            <div class="news-ticker" id="news-ticker" style="display:none;" title="Actualités">
+              <span class="news-ticker-label">📣</span>
+              <div class="news-ticker-view"><div class="news-ticker-track" id="news-ticker-track"></div></div>
+            </div>
           </div>
           <div class="visitor-only">
           <p class="hero-stat">🚵 En manque d'idées pour vos sorties VTT : Participez au challenge "Ride to Saint-Lô" </p>
@@ -459,9 +478,6 @@
 
         <div class="section-title" style="margin-top:0;">📅 Prochain événement</div>
         <div id="home-next-event" style="cursor:pointer;" title="Voir tous les événements"></div>
-
-        <div class="section-title" style="margin-top:26px;">📣 Actualités</div>
-        <div id="news-list"><div style="color:var(--text-dim); font-size:13px;">Chargement…</div></div>
 
         <div class="section-title" style="margin-top:26px;">🌦️ Météo à Saint-Lô</div>
         <div class="chart-card" id="weather-box" style="margin-bottom:20px;">
@@ -620,6 +636,15 @@
         <div id="admin-photos"></div>
       </div>
     </div>
+    <div class="section-title" style="margin-top:32px;">Actualités défilantes <span id="admin-news-count"></span></div>
+    <div class="page-sub">Ces messages défilent dans la bannière de l'accueil (les 10 plus récents).</div>
+    <div class="admin-news-add">
+      <input type="text" id="admin-news-input" maxlength="200" placeholder="Ex : Nouveau parcours disponible à Torigny !" autocomplete="off">
+      <button class="btn btn-primary" id="admin-news-add-btn" type="button">Ajouter</button>
+    </div>
+    <div class="msg" id="admin-news-msg"></div>
+    <div id="admin-news-list"></div>
+
     <div class="section-title" style="margin-top:32px;">Remarques reçues <span id="admin-remarks-count"></span></div>
     <div id="admin-remarks"></div>
   </div>
@@ -1254,6 +1279,8 @@ function renderLeaderboard() {
 
 let unsubNews = null;
 
+let newsItems = []; // [{id, title, body, seconds}] triées de la plus récente à la plus ancienne
+
 function watchNews() {
   if (unsubNews) unsubNews();
   try {
@@ -1262,36 +1289,88 @@ function watchNews() {
       snap.forEach(docSnap => {
         const d = docSnap.data();
         items.push({
+          id: docSnap.id,
           title: d.title || '',
           body: d.body || '',
-          seconds: (d.date && d.date.seconds) ? d.date.seconds : 0
+          seconds: (d.date && d.date.seconds) ? d.date.seconds : Math.floor(Date.now() / 1000)
         });
       });
       items.sort((a, b) => b.seconds - a.seconds);
-      renderNews(items.slice(0, 3));
+      newsItems = items;
+      renderNews(items.slice(0, 10));
+      renderAdminNews();
     }, () => {
-      const el = document.getElementById('news-list');
-      if (el) el.innerHTML = '';
+      const el = document.getElementById('news-ticker');
+      if (el) el.style.display = 'none';
     });
-  } catch (e) { /* pas grave, la fenêtre reste vide */ }
+  } catch (e) { /* pas grave, le bandeau reste masqué */ }
 }
 
+// Bandeau défilant sous les stats perso de la bannière
 function renderNews(items) {
-  const el = document.getElementById('news-list');
-  if (!el) return;
-  if (!items.length) {
-    el.innerHTML = '<div style="color:var(--text-dim); font-size:13px;">Aucune actualité pour le moment.</div>';
-    return;
-  }
-  el.innerHTML = items.map(n => {
-    const dateStr = n.seconds ? new Date(n.seconds * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) : '';
-    return '<div class="news-item">' +
-      '<div class="news-title">' + n.title + '</div>' +
-      '<div class="news-body">' + n.body + '</div>' +
-      (dateStr ? '<span class="news-date">' + dateStr + '</span>' : '') +
-    '</div>';
-  }).join('');
+  const box = document.getElementById('news-ticker');
+  const track = document.getElementById('news-ticker-track');
+  if (!box || !track) return;
+  const clean = items.filter(n => (n.title || n.body));
+  if (!clean.length) { box.style.display = 'none'; track.innerHTML = ''; return; }
+  const one = clean.map(n => '<b>' + escHtml(n.title) + '</b>' + (n.body ? ' ' + escHtml(n.body) : '')).join(' &nbsp;•&nbsp; ');
+  // le contenu est doublé pour une boucle sans coupure (l'animation défile de 50 %)
+  track.innerHTML = '<span>' + one + '</span><span>' + one + '</span>';
+  const chars = clean.reduce((n, a) => n + a.title.length + a.body.length + 6, 0);
+  track.style.animationDuration = Math.max(12, Math.round(chars * 7.5 / 45)) + 's'; // ~45 px/s
+  box.style.display = 'flex';
 }
+
+/* ---------- ACTUALITÉS (admin) : ajout et suppression ---------- */
+function renderAdminNews() {
+  const box = document.getElementById('admin-news-list');
+  if (!box) return;
+  const cnt = document.getElementById('admin-news-count');
+  if (cnt) cnt.textContent = newsItems.length ? '(' + newsItems.length + ')' : '';
+  box.innerHTML = newsItems.length ? newsItems.map(n => {
+    const d = new Date(n.seconds * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+    return '<div class="admin-news-row">' +
+      '<div class="admin-news-text"><b>' + escHtml(n.title) + '</b>' + (n.body ? ' ' + escHtml(n.body) : '') + '</div>' +
+      '<span class="admin-news-date">' + d + '</span>' +
+      '<button class="btn btn-grey admin-news-del" data-id="' + escHtml(n.id) + '" type="button">🗑</button>' +
+    '</div>';
+  }).join('') : '<div class="events-empty">Aucune actualité pour le moment.</div>';
+}
+
+function adminNewsMsg(text, isError) {
+  const m = document.getElementById('admin-news-msg');
+  if (!m) return;
+  m.textContent = text || '';
+  m.style.color = isError ? '#FF6B6B' : '';
+}
+
+document.getElementById('admin-news-add-btn').addEventListener('click', async () => {
+  if (!isAdmin()) return;
+  const input = document.getElementById('admin-news-input');
+  const text = input.value.trim();
+  if (!text) { adminNewsMsg('Écrivez le texte de l\'actualité.', true); return; }
+  try {
+    await setDoc(doc(collection(db, 'news')), { title: text, body: '', date: serverTimestamp() });
+    input.value = '';
+    adminNewsMsg('Actualité ajoutée.', false);
+  } catch (e) {
+    adminNewsMsg('Ajout impossible (' + (e.code || e.message) + '). Vérifiez vos règles Firestore.', true);
+  }
+});
+document.getElementById('admin-news-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('admin-news-add-btn').click(); }
+});
+document.getElementById('admin-news-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.admin-news-del');
+  if (!btn || !isAdmin()) return;
+  if (!confirm('Supprimer cette actualité ?')) return;
+  try {
+    await deleteDoc(doc(db, 'news', btn.dataset.id));
+    adminNewsMsg('Actualité supprimée.', false);
+  } catch (err) {
+    adminNewsMsg('Suppression impossible (' + (err.code || err.message) + ').', true);
+  }
+});
 
 /* ---------- MÉTÉO (Open-Meteo, gratuit, sans clé) ---------- */
 function weatherEmoji(code) {
