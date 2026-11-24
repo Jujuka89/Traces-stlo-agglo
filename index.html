@@ -1493,6 +1493,19 @@ function restackHomeTraces() {
 // Elles n'apparaissent qu'à partir de ce niveau de zoom, pour ne pas surcharger la carte de loin.
 // (Plus le chiffre est petit, plus les noms s'affichent tôt ; mettre 0 pour les afficher tout le temps.)
 const LABEL_MIN_ZOOM = 11;
+let homeLabelMinZoom = LABEL_MIN_ZOOM; // mobile : abaissé au zoom initial pour voir les noms sans zoomer
+const IS_MOBILE_MAP = window.matchMedia('(max-width: 700px)').matches;
+
+// Cadre la carte d'accueil sur les tracés ; sur mobile, léger zoom en plus pour afficher les noms d'emblée
+function fitHomeTraces(bounds) {
+  homeMap.fitBounds(bounds, { padding: IS_MOBILE_MAP ? [12, 12] : [40, 40] });
+  if (IS_MOBILE_MAP) {
+    const z = homeMap.getZoom() + 0.5;
+    homeMap.setZoom(z, { animate: false });
+    homeLabelMinZoom = Math.min(LABEL_MIN_ZOOM, z);
+  }
+  updateLabelVisibility();
+}
 
 function traceLabelPoint(coords) {
   const fallback = L.polygon(coords).getBounds().getCenter();
@@ -1525,7 +1538,7 @@ function updateTraceLabel(t) {
 
 function updateLabelVisibility() {
   if (!homeMap) return;
-  homeMap.getContainer().classList.toggle('labels-off', homeMap.getZoom() < LABEL_MIN_ZOOM);
+  homeMap.getContainer().classList.toggle('labels-off', homeMap.getZoom() < homeLabelMinZoom);
 }
 
 function renderHomeTraces() {
@@ -1580,7 +1593,7 @@ function fitHomeView() {
   if (allBounds.length) {
     let bounds = allBounds[0];
     allBounds.forEach(b => { bounds = bounds.extend(b); });
-    homeMap.fitBounds(bounds, { padding: [40, 40] });
+    fitHomeTraces(bounds);
   } else if (aggloBounds && aggloBounds.isValid()) {
     homeMap.fitBounds(aggloBounds, { padding: [20, 20] });
   }
@@ -1637,7 +1650,7 @@ function renderHome() {
     setTimeout(() => homeMap.invalidateSize(), 50);
     return;
   }
-  homeMap = L.map('home-map', { zoomControl: false });
+  homeMap = L.map('home-map', { zoomControl: false, zoomSnap: IS_MOBILE_MAP ? 0.25 : 1 });
   L.control.zoom({ position: 'bottomright' }).addTo(homeMap);
 
   // Fonds de carte sans clé d'API : sombre par défaut pour s'accorder au site, avec sélecteur
@@ -1677,7 +1690,7 @@ function renderHome() {
   if (allBounds.length) {
     let bounds = allBounds[0];
     allBounds.forEach(b => { bounds = bounds.extend(b); });
-    homeMap.fitBounds(bounds, { padding: [40, 40] });
+    fitHomeTraces(bounds);
   } else {
     homeMap.setView([49.1156, -1.0908], 11); // visiteur : aucun parcours affiché, carte centrée sur Saint-Lô
   }
