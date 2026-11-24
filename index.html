@@ -180,6 +180,8 @@
     cursor: pointer; transition: border-color 0.15s ease, transform 0.1s ease, background 0.15s ease;
   }
   .trace-card:hover { transform: translateY(-1px); }
+  .trace-card.is-recommended { position: relative; }
+  .trace-card-star { position: absolute; top: 3px; right: 5px; font-size: 13px; line-height: 1; color: #FFC93C; text-shadow: 0 1px 3px rgba(0,0,0,0.5); pointer-events: none; }
   .trace-card:active { transform: translateY(0); }
   .trace-card.is-validated { border-color: #3DDC84; background: linear-gradient(135deg, rgba(61,220,132,0.12), var(--surface)); }
   .trace-card.is-validated:hover { border-color: #3DDC84; }
@@ -1501,7 +1503,7 @@ const IS_MOBILE_MAP = window.matchMedia('(max-width: 700px)').matches;
 function fitHomeTraces(bounds) {
   homeMap.fitBounds(bounds, { padding: IS_MOBILE_MAP ? [12, 12] : [40, 40] });
   if (IS_MOBILE_MAP) {
-    let z = homeMap.getZoom() + 0.5;
+    let z = homeMap.getZoom() + 0.8;
     const done = TRACE_LIST.filter(t => t._done && t._polygon).map(t => t._polygon.getBounds());
     let center = homeMap.getCenter();
     if (done.length) {
@@ -1747,7 +1749,8 @@ function renderTraceList() {
   todo.forEach(t => {
     const card = document.createElement('div');
     card.className = 'trace-card ' + (t.validated ? 'is-validated' : 'is-pending');
-    card.innerHTML = traceCardBody(t);
+    card.className += ' is-recommended';
+    card.innerHTML = '<span class="trace-card-star" title="Parcours conseillé">★</span>' + traceCardBody(t);
     card.addEventListener('click', () => openTrace(t.id));
     list.appendChild(card);
   });
