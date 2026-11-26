@@ -1817,21 +1817,28 @@ function updateLabelVisibility() {
 function renderHomeTraces() {
   const allBounds = [];
   TRACE_LIST.forEach(t => {
-    if (!isTraceUnlocked(t.id)) return; // masqué tant que non débloqué
+    // Saison pas commencée : seul le parcours de départ est affiché, en grisé et non cliquable
+    const preview = seasonLocked() && t.id === startTraceId();
+    if (!isTraceUnlocked(t.id) && !preview) return; // masqué tant que non débloqué
     if (t._polygon) { allBounds.push(t._polygon.getBounds()); return; } // déjà affiché
     const fullTrace = TRACES[t.id];
-    const poly = L.polygon(fullTrace.coords, {
+    const poly = L.polygon(fullTrace.coords, preview ? {
+      color: '#8A8D96', weight: 2.5, fillColor: '#8A8D96', fillOpacity: 0.15, dashArray: '6 6',
+      lineJoin: 'round', className: 'home-trace', interactive: false
+    } : {
       color: '#FF5A1F', weight: 2.5, fillColor: '#FF5A1F', fillOpacity: 0.22,
       lineJoin: 'round', className: 'home-trace'
     }).addTo(homeMap);
-    t._polygon = poly;
+    t._polygon = poly; t._preview = preview;
     t._label = L.marker(traceLabelPoint(fullTrace.coords), {
       icon: buildTraceLabelIcon(t), interactive: false, keyboard: false, pane: 'labelPane'
     }).addTo(homeMap);
-    poly.bindTooltip(t.name, { sticky: true, direction: 'top', className: 'trace-tooltip' });
-    poly.on('click', () => openTrace(t.id));
-    // Survol : une copie plus épaisse du tracé s'affiche sur un calque tout en haut (au-dessus des verts aussi)
-    poly.on('mouseover', () => showHomeHover(t));
+    if (!preview) {
+      poly.bindTooltip(t.name, { sticky: true, direction: 'top', className: 'trace-tooltip' });
+      poly.on('click', () => openTrace(t.id));
+      // Survol : une copie plus épaisse du tracé s'affiche sur un calque tout en haut (au-dessus des verts aussi)
+      poly.on('mouseover', () => showHomeHover(t));
+    }
     allBounds.push(poly.getBounds());
   });
   updateLabelVisibility();
@@ -2005,10 +2012,8 @@ function renderTraceList() {
     // Saison pas commencée : message d'attente + parcours de départ choisi, grisé et non cliquable
     if (sub) sub.textContent = 'Votre parcours de départ vous attend.';
     let html = '<div style="background:var(--accent-soft); border:1px solid var(--accent); border-radius:12px; padding:14px 16px; margin-bottom:10px; font-size:14px; line-height:1.5; color:var(--text);">⏳ <strong>' + escHtml(seasonWaitText().replace(' > Soyez prêt', '')) + '</strong> &gt; Soyez prêt !</div>';
-    if (unlockedTraces && unlockedTraces.length === 1) {
-      const t0 = TRACE_LIST.find(x => x.id === unlockedTraces[0]);
-      if (t0) html += '<div class="trace-card is-locked" style="cursor:default;">' + traceCardBody(t0) + '</div>';
-    }
+    const t0 = TRACE_LIST.find(x => x.id === startTraceId());
+    if (t0) html += '<div class="trace-card is-locked" style="cursor:default;">' + traceCardBody(t0) + '</div>';
     list.innerHTML = html;
     renderParcoursRanking();
     return;
@@ -2142,7 +2147,7 @@ function watchAllRatings() {
 async function refreshHomeColors() {
   if (!currentUser) return;
   for (const t of TRACE_LIST) {
-    if (!t._polygon) continue; // tracé verrouillé : pas de polygone à colorer
+    if (!t._polygon || t._preview) continue; // tracé verrouillé ou simple aperçu : pas de couleur de validation
     try {
       const snap = await getDoc(doc(db, 'traces', t.id, 'validations', currentUser.uid));
       t._polygon.setStyle(snap.exists()
@@ -2511,6 +2516,7 @@ const SEASON_START_DEFAULT = '2027-01-15';
 let seasonState = { started: false, startDate: SEASON_START_DEFAULT, error: null };
 let unsubSeason = null;
 
+function startTraceId() { return (unlockedTraces && unlockedTraces.length) ? unlockedTraces[0] : null; }
 function seasonLocked() { return !seasonState.started && !isAdmin(); }
 function seasonDateLabel() {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(seasonState.startDate || '');
@@ -2534,14 +2540,15 @@ async function loadSeason() {
 // Réaffiche l'accueil selon l'état de la saison (tracés masqués ou affichés)
 function applySeasonView() {
   if (!currentUser || !tracesLoaded) return;
-  if (seasonLocked()) {
-    clearHomeHover();
-    TRACE_LIST.forEach(t => {
-      if (homeMap && t._polygon) homeMap.removeLayer(t._polygon);
+  clearHomeHover();
+  TRACE_LIST.forEach(t => {
+    if (t._polygon && (t._preview || seasonLocked())) {
+      if (homeMap) homeMap.removeLayer(t._polygon);
       if (homeMap && t._label) homeMap.removeLayer(t._label);
-      t._polygon = null; t._label = null; t._done = false;
-    });
-  }
+      t._polygon = null; t._label = null; t._preview = false;
+      if (seasonLocked()) t._done = false;
+    }
+  });
   renderTraceList();
   if (homeMap) { renderHomeTraces(); refreshHomeColors(); fitHomeView(); }
   renderAdminSeason();
