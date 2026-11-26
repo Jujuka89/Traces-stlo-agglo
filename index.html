@@ -624,6 +624,10 @@
   <div class="content">
     <div class="page-title" style="margin-top:20px;">Administration</div>
     <div class="page-sub">Événements, inscrits et photos de la galerie.</div>
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:0 0 20px;">
+      <button class="btn btn-primary" id="admin-export-btn" type="button" style="width:auto; padding:10px 16px;">📥 Exporter les résultats (Excel)</button>
+      <span class="msg" id="admin-export-msg" style="margin:0;"></span>
+    </div>
     <div class="admin-grid">
       <div class="admin-col">
         <div class="section-title">Propositions en attente <span id="admin-pending-count"></span></div>
@@ -1014,6 +1018,133 @@ function renderAdminUsers() {
   }).join('') : '<div class="events-empty">' + (q ? 'Aucun résultat.' : 'Aucun inscrit enregistré pour le moment.') + '</div>';
 }
 document.getElementById('admin-users-search').addEventListener('input', renderAdminUsers);
+
+/* ---------- EXPORT EXCEL (sauvegarde des résultats) ----------
+   Génère un fichier .xlsx à 2 feuilles : « Classement » (1 ligne par participant)
+   et « Détail » (1 ligne par parcours validé). Les photos ne sont pas incluses (volumineuses).
+   La bibliothèque SheetJS n'est chargée qu'au clic ; en cas d'échec, export CSV de secours. */
+function loadSheetJS() {
+  return new Promise((resolve, reject) => {
+    if (window.XLSX) return resolve(window.XLSX);
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    sc.onload = () => window.XLSX ? resolve(window.XLSX) : reject(new Error('XLSX indisponible'));
+    sc.onerror = () => reject(new Error('Chargement de la bibliothèque Excel impossible'));
+    document.head.appendChild(sc);
+  });
+}
+function fmtDateFr(ts) {
+  if (!ts || !ts.seconds) return '';
+  const d = new Date(ts.seconds * 1000);
+  return d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+function fmtDureeHMS(sec) {
+  if (typeof sec !== 'number' || !sec) return '';
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), r = Math.round(sec % 60);
+  return h + ':' + String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
+}
+function buildResultsExport() {
+  // Fusion des inscrits (users) et des participants ayant validé (validations)
+  const people = {};
+  Object.values(adminUsers || {}).forEach(u => {
+    people[u._id] = { uid: u._id, nom: u.nom || '', email: u.email || '', inscrit: fmtDateFr(u.dateInscription), entries: [] };
+  });
+  Object.keys(participantsIndex || {}).forEach(uid => {
+    if (!people[uid]) people[uid] = { uid, nom: '', email: '', inscrit: '', entries: [] };
+    if (!people[uid].nom) people[uid].nom = participantsIndex[uid].nom || '';
+    people[uid].entries = participantsIndex[uid].entries;
+  });
+
+  const rows = Object.values(people).map(p => {
+    let dist = 0, gain = 0, dur = 0, photos = 0, gpx = 0;
+    p.entries.forEach(e => {
+      const t = TRACES[e.traceId];
+      if (t) { dist += t.stats.distance_km; gain += t.stats.gain_m; }
+      if (typeof e.dureeSecondes === 'number') dur += e.dureeSecondes;
+      if (e.photo) photos++;
+      if (e.viaGpx) gpx++;
+    });
+    const pts = p.entries.length * POINTS_PARCOURS + photos * POINTS_PHOTO + gpx * POINTS_GPX;
+    return { p, count: p.entries.length, pts, dist, gain, dur, photos, gpx };
+  }).sort((a, b) => (b.pts - a.pts) || (b.dist - a.dist) || (a.p.nom || '').localeCompare(b.p.nom || '', 'fr'));
+
+  const classement = rows.map((r, i) => ({
+    'Rang': r.count ? i + 1 : '',
+    'Nom': r.p.nom || '(nom inconnu)',
+    'E-mail': r.p.email,
+    'Parcours validés': r.count,
+    'Points': r.pts,
+    'Distance cumulée (km)': Math.round(r.dist * 10) / 10,
+    'Dénivelé cumulé (m)': Math.round(r.gain),
+    'Temps cumulé (h:mm:ss)': fmtDureeHMS(r.dur),
+    'Photos envoyées': r.photos,
+    'Traces GPX validées': r.gpx,
+    'Inscrit le': r.p.inscrit,
+    'UID': r.p.uid
+  }));
+
+  const detail = [];
+  rows.forEach(r => {
+    r.p.entries.slice().sort((a, b) => ((a.date && a.date.seconds) || 0) - ((b.date && b.date.seconds) || 0)).forEach(e => {
+      const t = TRACES[e.traceId];
+      detail.push({
+        'Nom': r.p.nom || '(nom inconnu)',
+        'E-mail': r.p.email,
+        'Parcours': t ? t.name : e.traceId,
+        'Distance (km)': t ? Math.round(t.stats.distance_km * 10) / 10 : '',
+        'Dénivelé (m)': t ? Math.round(t.stats.gain_m) : '',
+        'Validé le': fmtDateFr(e.date),
+        'Durée (h:mm:ss)': fmtDureeHMS(e.dureeSecondes),
+        'Photo': e.photo ? 'Oui' : 'Non',
+        'Via trace GPX': e.viaGpx ? 'Oui' : 'Non',
+        'Points': POINTS_PARCOURS + (e.photo ? POINTS_PHOTO : 0) + (e.viaGpx ? POINTS_GPX : 0),
+        'UID': r.p.uid
+      });
+    });
+  });
+  return { classement, detail };
+}
+function downloadCsvFallback(name, rows) {
+  if (!rows.length) return;
+  const cols = Object.keys(rows[0]);
+  const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const csv = '\uFEFF' + [cols.map(esc).join(';')].concat(rows.map(r => cols.map(c => esc(r[c])).join(';'))).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+document.getElementById('admin-export-btn').addEventListener('click', async () => {
+  if (!isAdmin()) return;
+  const btn = document.getElementById('admin-export-btn');
+  const msg = document.getElementById('admin-export-msg');
+  const stamp = new Date().toISOString().slice(0, 10);
+  btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Préparation du fichier…';
+  try {
+    const { classement, detail } = buildResultsExport();
+    if (!classement.length) { msg.className = 'msg err'; msg.textContent = 'Aucune donnée à exporter pour le moment (réessayez dans quelques secondes).'; return; }
+    try {
+      const X = await loadSheetJS();
+      const wb = X.utils.book_new();
+      const ws1 = X.utils.json_to_sheet(classement);
+      ws1['!cols'] = [6, 24, 30, 10, 8, 14, 14, 14, 10, 12, 18, 30].map(w => ({ wch: w }));
+      const ws2 = X.utils.json_to_sheet(detail.length ? detail : [{ 'Info': 'Aucun parcours validé' }]);
+      ws2['!cols'] = [24, 30, 28, 12, 12, 18, 14, 8, 12, 8, 30].map(w => ({ wch: w }));
+      X.utils.book_append_sheet(wb, ws1, 'Classement');
+      X.utils.book_append_sheet(wb, ws2, 'Détail');
+      X.writeFile(wb, 'sauvegarde-resultats-' + stamp + '.xlsx');
+      msg.className = 'msg ok'; msg.textContent = '✓ ' + classement.length + ' participants, ' + detail.length + ' validations exportés.';
+    } catch (libErr) {
+      downloadCsvFallback('sauvegarde-resultats-' + stamp + '.csv', classement);
+      downloadCsvFallback('sauvegarde-validations-' + stamp + '.csv', detail);
+      msg.className = 'msg ok'; msg.textContent = 'Export Excel indisponible : 2 fichiers CSV (ouvrables dans Excel) ont été téléchargés.';
+    }
+  } catch (e) {
+    msg.className = 'msg err'; msg.textContent = 'Erreur : ' + (e.code || e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 let adminGalleryItems = [];
 function renderAdminGallery() {
