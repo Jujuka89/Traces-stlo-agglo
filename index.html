@@ -552,7 +552,7 @@
 
     <div class="stats-grid" id="participant-stats"></div>
 
-    <div class="section-title">Badges <span id="participant-badges-count" style="color:var(--text-dim); font-weight:500; text-transform:none; letter-spacing:0;"></span></div>
+    <div class="section-title">Badges · <span id="participant-badges-season">Saison 1</span> <span id="participant-badges-count" style="color:var(--text-dim); font-weight:500; text-transform:none; letter-spacing:0;"></span></div>
     <div class="badges-grid" id="participant-badges" style="margin-bottom:20px;"></div>
 
     <div class="section-title" id="participant-gallery-title" style="display:none;">Photos partagées</div>
@@ -1065,7 +1065,9 @@ function buildResultsExport() {
       if (e.viaGpx) gpx++;
     });
     const pts = p.entries.length * POINTS_PARCOURS + photos * POINTS_PHOTO + gpx * POINTS_GPX;
-    return { p, count: p.entries.length, pts, dist, gain, dur, photos, gpx };
+    const st = { count: p.entries.length, dist, gain, photos, gpx };
+    const badges = buildBadgeDefs().filter(d => st[d.metric] >= d.target).map(d => d.name);
+    return { p, count: p.entries.length, pts, dist, gain, dur, photos, gpx, badges };
   }).sort((a, b) => (b.pts - a.pts) || (b.dist - a.dist) || (a.p.nom || '').localeCompare(b.p.nom || '', 'fr'));
 
   const classement = rows.map((r, i) => ({
@@ -1079,6 +1081,8 @@ function buildResultsExport() {
     'Temps cumulé (h:mm:ss)': fmtDureeHMS(r.dur),
     'Photos envoyées': r.photos,
     'Traces GPX validées': r.gpx,
+    ['Badges ' + SEASON_LABEL + ' (nombre)']: r.badges.length,
+    ['Badges ' + SEASON_LABEL]: r.badges.join(', '),
     'Inscrit le': r.p.inscrit,
     'UID': r.p.uid
   }));
@@ -1127,7 +1131,7 @@ document.getElementById('admin-export-btn').addEventListener('click', async () =
       const X = await loadSheetJS();
       const wb = X.utils.book_new();
       const ws1 = X.utils.json_to_sheet(classement);
-      ws1['!cols'] = [6, 24, 30, 10, 8, 14, 14, 14, 10, 12, 18, 30].map(w => ({ wch: w }));
+      ws1['!cols'] = [6, 24, 30, 10, 8, 14, 14, 14, 10, 12, 12, 60, 18, 30].map(w => ({ wch: w }));
       const ws2 = X.utils.json_to_sheet(detail.length ? detail : [{ 'Info': 'Aucun parcours validé' }]);
       ws2['!cols'] = [24, 30, 28, 12, 12, 18, 14, 8, 12, 8, 30].map(w => ({ wch: w }));
       X.utils.book_append_sheet(wb, ws1, 'Classement');
@@ -2198,6 +2202,8 @@ const BADGE_TIERS = {
   legend: { outer: '#FF5A1F', inner: '#A8340A', ring: '#FFA37A', ribbon: '#7A2306' }
 };
 
+const SEASON_LABEL = 'Saison 1'; // à changer à l'ouverture de la saison suivante
+
 function buildBadgeDefs() {
   const total = TRACE_LIST.length;
   const defs = [];
@@ -2268,6 +2274,8 @@ function renderParticipantBadges(entries) {
   const stats = statsFromEntries(entries);
   const defs = buildBadgeDefs();
   const done = defs.filter(d => stats[d.metric] >= d.target).length;
+  const seasonEl = document.getElementById('participant-badges-season');
+  if (seasonEl) seasonEl.textContent = SEASON_LABEL;
   if (counter) counter.textContent = '(' + done + ' / ' + defs.length + ')';
   grid.innerHTML = defs.map(d => {
     const ok = stats[d.metric] >= d.target;
@@ -2284,7 +2292,7 @@ function showBadgePopup(defs) {
   const modal = document.getElementById('badge-modal');
   const list = document.getElementById('badge-modal-list');
   if (!modal || !list || !defs.length) return;
-  document.getElementById('badge-modal-title').textContent = defs.length > 1 ? 'Nouveaux badges !' : 'Nouveau badge !';
+  document.getElementById('badge-modal-title').textContent = (defs.length > 1 ? 'Nouveaux badges' : 'Nouveau badge') + ' · ' + SEASON_LABEL + ' !';
   list.innerHTML = defs.map(d =>
     '<div class="badge-popup-row"><div class="badge-art">' + badgeSvg(d) + '</div>' +
     '<div><div class="badge-name" style="margin-top:0; font-size:14px;">' + escHtml(d.name) + '</div>' +
