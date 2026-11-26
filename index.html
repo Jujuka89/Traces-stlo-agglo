@@ -477,7 +477,7 @@
 
         <div class="member-only">
           <div class="section-title" style="margin-top:0;">🧭 Parcours conseillé</div>
-          <div class="page-sub">Le tracé le mieux noté parmi ceux qu'il vous reste à faire.</div>
+          <div class="page-sub" id="trace-list-sub">Le tracé le mieux noté parmi ceux qu'il vous reste à faire.</div>
           <div id="trace-list"></div>
         </div>
 
@@ -627,6 +627,17 @@
     <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:0 0 20px;">
       <button class="btn btn-primary" id="admin-export-btn" type="button" style="width:auto; padding:10px 16px;">📥 Exporter les résultats (Excel)</button>
       <span class="msg" id="admin-export-msg" style="margin:0;"></span>
+    </div>
+    <div class="admin-card" id="admin-season-card" style="margin-bottom:22px;">
+      <div class="section-title" style="margin-top:0;">🚦 Saison</div>
+      <div id="admin-season-status" style="font-size:14px; color:var(--text); margin-bottom:12px; line-height:1.5;"></div>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <label for="admin-season-date" style="font-size:13px; color:var(--text-dim);">Date de début annoncée</label>
+        <input type="date" id="admin-season-date" style="padding:9px 10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:14px;">
+        <button class="btn btn-outline" id="admin-season-save-date" type="button" style="width:auto; padding:10px 14px;">Enregistrer la date</button>
+        <button class="btn btn-primary" id="admin-season-toggle" type="button" style="width:auto; padding:10px 16px;">▶ Démarrer la saison</button>
+      </div>
+      <div class="msg" id="admin-season-msg"></div>
     </div>
     <div class="admin-grid">
       <div class="admin-col">
@@ -814,6 +825,7 @@
   <div style="background:var(--surface); border:1px solid var(--accent); border-radius:16px; padding:26px; max-width:420px; width:100%; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
     <div style="font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:700; margin-bottom:6px; color:var(--text);">🚵 Choisissez votre parcours de départ</div>
     <div style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">Une fois ce parcours terminé, les tracés situés autour se débloqueront automatiquement.</div>
+    <div id="start-trace-season-note" style="display:none; font-size:13px; color:var(--accent); font-weight:600; margin:-6px 0 14px;"></div>
     <div id="start-trace-list" style="overflow-y:auto; flex:1; margin-bottom:16px; padding-right:2px;"></div>
     <button class="btn btn-primary" id="start-trace-confirm" style="width:100%;" disabled>Commencer l'aventure</button>
   </div>
@@ -1987,7 +1999,21 @@ function traceCardBody(t) {
 
 function renderTraceList() {
   const list = document.getElementById('trace-list');
+  const sub = document.getElementById('trace-list-sub');
   list.innerHTML = '';
+  if (seasonLocked()) {
+    // Saison pas commencée : message d'attente + parcours de départ choisi, grisé et non cliquable
+    if (sub) sub.textContent = 'Votre parcours de départ vous attend.';
+    let html = '<div style="background:var(--accent-soft); border:1px solid var(--accent); border-radius:12px; padding:14px 16px; margin-bottom:10px; font-size:14px; line-height:1.5; color:var(--text);">⏳ <strong>' + escHtml(seasonWaitText().replace(' > Soyez prêt', '')) + '</strong> &gt; Soyez prêt !</div>';
+    if (unlockedTraces && unlockedTraces.length === 1) {
+      const t0 = TRACE_LIST.find(x => x.id === unlockedTraces[0]);
+      if (t0) html += '<div class="trace-card is-locked" style="cursor:default;">' + traceCardBody(t0) + '</div>';
+    }
+    list.innerHTML = html;
+    renderParcoursRanking();
+    return;
+  }
+  if (sub) sub.textContent = "Le tracé le mieux noté parmi ceux qu'il vous reste à faire.";
   const todo = TRACE_LIST
     .filter(t => !t.validated && isTraceUnlocked(t.id))
     .sort((a, b) => {
@@ -2182,7 +2208,7 @@ function showAdmin() {
   gateView.style.display = 'none'; siteHeader.style.display = 'flex'; siteFooter.style.display = 'flex';
   homeView.style.display = 'none'; appView.style.display = 'none'; leaderboardView.style.display = 'none'; parcoursView.style.display = 'none'; galleryView.style.display = 'none'; participantView.style.display = 'none'; eventsView.style.display = 'none';
   adminView.classList.add('has-header'); adminView.style.display = 'block';
-  watchAdminProposals(); watchPublicEvents(); renderAdminPublished(); watchAdminUsers(); renderAdminUsers(); renderAdminGallery(); watchAdminRemarks(); renderAdminRemarks();
+  watchAdminProposals(); watchPublicEvents(); renderAdminPublished(); watchAdminUsers(); renderAdminUsers(); renderAdminGallery(); watchAdminRemarks(); renderAdminRemarks(); renderAdminSeason();
   window.scrollTo(0, 0);
 }
 function showParticipant() { adminView.style.display = 'none'; eventsView.style.display = 'none';
@@ -2477,8 +2503,113 @@ document.getElementById('hero-profile-link').addEventListener('click', (e) => {
   if (currentUser) openParticipant(currentUser.uid);
 });
 
+/* ---------- SAISON (ouverture / attente) ----------
+   Document Firestore config/season : { started: true|false, startDate: 'AAAA-MM-JJ' }.
+   Tant que started n'est pas true, les participants (hors admin) ne peuvent ni voir ni ouvrir les tracés :
+   ils voient « Début de la saison le … > Soyez prêt ». Les admins voient toujours tout (pour tester). */
+const SEASON_START_DEFAULT = '2027-01-15';
+let seasonState = { started: false, startDate: SEASON_START_DEFAULT, error: null };
+let unsubSeason = null;
+
+function seasonLocked() { return !seasonState.started && !isAdmin(); }
+function seasonDateLabel() {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(seasonState.startDate || '');
+  const d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(2027, 0, 15);
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+function seasonWaitText() { return 'Début de la saison le ' + seasonDateLabel() + ' > Soyez prêt'; }
+function seasonFromSnap(snap) {
+  const d = (snap && snap.exists()) ? snap.data() : {};
+  return {
+    started: d.started === true,
+    startDate: (typeof d.startDate === 'string' && d.startDate) ? d.startDate : SEASON_START_DEFAULT,
+    error: null
+  };
+}
+async function loadSeason() {
+  try { seasonState = seasonFromSnap(await getDoc(doc(db, 'config', 'season'))); }
+  catch (e) { seasonState = { started: false, startDate: SEASON_START_DEFAULT, error: e.code || e.message }; }
+}
+
+// Réaffiche l'accueil selon l'état de la saison (tracés masqués ou affichés)
+function applySeasonView() {
+  if (!currentUser || !tracesLoaded) return;
+  if (seasonLocked()) {
+    clearHomeHover();
+    TRACE_LIST.forEach(t => {
+      if (homeMap && t._polygon) homeMap.removeLayer(t._polygon);
+      if (homeMap && t._label) homeMap.removeLayer(t._label);
+      t._polygon = null; t._label = null; t._done = false;
+    });
+  }
+  renderTraceList();
+  if (homeMap) { renderHomeTraces(); refreshHomeColors(); fitHomeView(); }
+  renderAdminSeason();
+}
+
+function watchSeason() {
+  if (unsubSeason) unsubSeason();
+  unsubSeason = onSnapshot(doc(db, 'config', 'season'), (snap) => {
+    const next = seasonFromSnap(snap);
+    const changed = next.started !== seasonState.started || next.startDate !== seasonState.startDate || !!seasonState.error;
+    seasonState = next;
+    if (changed) applySeasonView(); else renderAdminSeason();
+  }, (e) => {
+    seasonState = Object.assign({}, seasonState, { error: e.code || e.message });
+    renderAdminSeason();
+  });
+}
+
+function renderAdminSeason() {
+  const status = document.getElementById('admin-season-status');
+  if (!status) return;
+  const btn = document.getElementById('admin-season-toggle');
+  const dateInput = document.getElementById('admin-season-date');
+  if (seasonState.error) {
+    status.innerHTML = '<span style="color:#FF6B6B;">Lecture impossible (' + escHtml(seasonState.error) + '). Ajoutez la règle Firestore pour « config/season ».</span>';
+  } else if (seasonState.started) {
+    status.innerHTML = '✅ <strong>Saison démarrée.</strong> Les participants peuvent voir et ouvrir leurs parcours.';
+  } else {
+    status.innerHTML = '⏳ <strong>Saison en attente</strong> — début annoncé le ' + escHtml(seasonDateLabel()) + '. Les participants voient un message d\'attente à la place des tracés (vous, en tant qu\'admin, voyez tout).';
+  }
+  if (btn) btn.textContent = seasonState.started ? '⏸ Remettre en attente' : '▶ Démarrer la saison';
+  if (dateInput && document.activeElement !== dateInput) dateInput.value = seasonState.startDate;
+}
+
+async function saveSeason(fields, msgText) {
+  const msg = document.getElementById('admin-season-msg');
+  if (!isAdmin()) return;
+  msg.className = 'msg'; msg.textContent = 'Enregistrement…';
+  try {
+    await setDoc(doc(db, 'config', 'season'), Object.assign({ updatedAt: serverTimestamp() }, fields), { merge: true });
+    msg.className = 'msg ok'; msg.textContent = '✓ ' + msgText;
+  } catch (e) {
+    msg.className = 'msg err'; msg.textContent = 'Erreur : ' + (e.code || e.message);
+  }
+}
+document.getElementById('admin-season-toggle').addEventListener('click', async (ev) => {
+  const btn = ev.currentTarget;
+  const date = document.getElementById('admin-season-date').value || seasonState.startDate;
+  const goStart = !seasonState.started;
+  const ok = goStart
+    ? confirm('Démarrer la saison maintenant ?\n\nTous les participants pourront voir et ouvrir leurs parcours.')
+    : confirm('Remettre la saison en attente ?\n\nLes participants (hors admin) ne verront plus les tracés.');
+  if (!ok) return;
+  btn.disabled = true;
+  const fields = { started: goStart, startDate: date };
+  if (goStart) fields.startedAt = serverTimestamp();
+  await saveSeason(fields, goStart ? 'Saison démarrée.' : 'Saison remise en attente.');
+  btn.disabled = false;
+});
+document.getElementById('admin-season-save-date').addEventListener('click', () => {
+  const date = document.getElementById('admin-season-date').value;
+  if (!date) return;
+  saveSeason({ startDate: date }, 'Date enregistrée.');
+});
+
 /* ---------- SYSTÈME DE DÉBLOCAGE PROGRESSIF ---------- */
 function isTraceUnlocked(traceId) {
+  if (seasonLocked()) return false; // saison pas commencée : rien n'est accessible (sauf admin)
   if (!unlockedTraces) return false;
   return unlockedTraces.includes(traceId);
 }
@@ -2565,6 +2696,11 @@ function openStartTraceModal() {
   list.innerHTML = '';
   chosenStartTraceId = null;
   document.getElementById('start-trace-confirm').disabled = true;
+  const seasonNote = document.getElementById('start-trace-season-note');
+  if (seasonNote) {
+    seasonNote.style.display = seasonLocked() ? 'block' : 'none';
+    seasonNote.textContent = '⏳ ' + seasonWaitText() + ' ! Le tracé de votre parcours sera visible à l\'ouverture de la saison.';
+  }
 
   TRACE_LIST.forEach(t => {
     const card = document.createElement('div');
@@ -2624,6 +2760,7 @@ function openTrace(id) {
       showGate();
       return;
     }
+    if (seasonLocked()) { alert('⏳ ' + seasonWaitText() + ' !'); return; }
     alert('🔒 Ce parcours n\'est pas encore débloqué.\n\nTerminez un parcours voisin pour y accéder !');
     return;
   }
@@ -3022,6 +3159,7 @@ onAuthStateChanged(auth, async (user) => {
     try {
       if (!tracesLoaded) await loadTraces();
       await loadUnlockedTraces();
+      await loadSeason();
       if (!unlockedTraces) {
         if (!justSignedUp) {
           // Compte déjà existant sans document de déblocage : on lui laisse l'accès
@@ -3039,6 +3177,7 @@ onAuthStateChanged(auth, async (user) => {
       watchNews();
       loadWeather();
       showHome();
+      watchSeason();
       checkForNewTraces();
       if (justSignedUp && !unlockedTraces) {
         openStartTraceModal();
@@ -3064,6 +3203,7 @@ onAuthStateChanged(auth, async (user) => {
     if (unsubNews) unsubNews();
     if (unsubRatings) unsubRatings();
     if (unsubSiteStats) unsubSiteStats();
+    if (unsubSeason) { unsubSeason(); unsubSeason = null; }
     unsubHomeCounts.forEach(u => u());
     unsubHomeCounts = [];
     enterVisitorMode();
