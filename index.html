@@ -423,6 +423,7 @@
 <footer id="site-footer">
   <span class="nav-user">👀 <span id="footer-visits">--</span> visites</span>
   <span class="nav-user footer-handle">@challenge-ride-to-saint-lo</span>
+  <a href="#" class="coffee-link" target="_blank" rel="noopener noreferrer" style="display:none;">☕ Me payer un café</a>
   <a href="#" id="nav-admin-link">🔧 Admin</a>
   <a href="#" id="nav-logout-link">Déconnexion</a>
 </footer>
@@ -511,6 +512,8 @@
         <div id="recent-activity-list"></div>
 
         <button class="btn btn-outline" id="feedback-btn" type="button" style="margin-top:22px; font-family:'Inter',sans-serif; font-size:14px; cursor:pointer;">💬 Envoyez-nous vos remarques</button>
+
+        <a class="btn btn-outline coffee-link" href="#" target="_blank" rel="noopener noreferrer" style="display:none; margin-top:10px; box-sizing:border-box; text-align:center; text-decoration:none; font-family:'Inter',sans-serif; font-size:14px;">☕ Me payer un café</a>
       </div>
     </div>
   </div>
@@ -903,6 +906,18 @@ const participantView = document.getElementById('participant-view');
 const loadingScreen = document.getElementById('loading-screen');
 const eventsView = document.getElementById('events-view');
 const adminView = document.getElementById('admin-view');
+
+/* ---------- ME PAYER UN CAFÉ (PayPal) ----------
+   Remplacez l'adresse ci-dessous par votre lien PayPal.Me (ex : https://www.paypal.me/monpseudo).
+   Tant qu'elle contient « VOTRE_PSEUDO », les boutons restent masqués. */
+const PAYPAL_URL = 'https://www.paypal.me/juliencallu';
+(function setupCoffee() {
+  if (!PAYPAL_URL || PAYPAL_URL.includes('VOTRE_PSEUDO')) return;
+  document.querySelectorAll('.coffee-link').forEach(a => {
+    a.href = PAYPAL_URL;
+    a.style.display = a.closest('#site-footer') ? 'inline' : 'block';
+  });
+})();
 
 /* ---------- ADMIN ----------
    Collez ici l'UID de chaque administrateur (Firebase > Authentication > Utilisateurs > "UID utilisateur").
