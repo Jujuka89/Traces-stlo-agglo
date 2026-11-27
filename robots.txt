@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ride-to-saint-lo.fr/sitemap.xml
